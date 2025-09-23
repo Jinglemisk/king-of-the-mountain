@@ -561,14 +561,45 @@ Game
 
 ## Helpful Documents Guide
 
-- docs/CONTENT_CATALOG.md — Master catalog of all content: classes, items/treasures by tier, Chance cards, enemies by tier, tile types; canonical IDs and JSON schemas; effect keyword dictionary.
-- docs/TS_TYPES_AND_INTERFACES.md — Source of truth for TypeScript domain models and engine API: GameState, PlayerState, Tile/Board, Item/Enemy, Combat/Duel state, events, selectors, invariants.
-- docs/COMBAT_AND_DUELS.md — Exact combat spec for PvE and PvP: round flow, modifiers stacking, class passives, multi-enemy targeting, retreat/defeat outcomes, loot tables, timing edge cases.
-- docs/TURN_AND_PHASE_MACHINE.md — Complete turn/phase graph: allowed actions per phase, entry/exit guards, endTurn clearing, pending-tile resolution ordering.
-- docs/ACTIONS_EVENTS_AND_LOGGING.md — Canonical list of client actions, engine-emitted events, and log templates; payload shapes, authorization, ordering/idempotency rules.
-- docs/RNG_AND_SHUFFLING.md — Randomness policy: dice, shuffles, weighted picks, audit logging, deterministic seeding, replay/test hooks.
-- docs/BOARD_AND_MOVEMENT_SPEC.md — Board JSON schema and movement rules: branching, path-history stack, backward traversal when history is empty, pass-over triggers, tie-breaking, Lamp timing.
-- docs/ITEMS_INVENTORY_AND_TIMING.md — Equipment/inventory rules: slots and capacities, swap windows, drop/pickup policy, play/interrupt timings, Sanctuary/trap restrictions, per-item rulings.
-- docs/UI_COMPONENT_CONTRACT.md — UI component catalog and prop contracts: screens, data inputs, user actions mapped to engine actions, visible vs hidden info, accessibility states.
-- docs/NETWORKING_AND_DB_SCHEMA.md — Firestore shapes and sync protocol: rooms/games schemas, indexes, optimistic concurrency, versioning/migrations, read/write rules by phase.
-- docs/TEST_PLAN_AND_FIXTURES.md — Acceptance tests and fixtures: seeded scenarios for movement, combat, items/timing, RNG determinism, Sanctuary/duel rules, final-tile tie-breaker.
+- .claude/CONTENT_CATALOG.md — Master catalog of all content: classes, items/treasures by tier, Chance cards, enemies by tier, tile types; canonical IDs and JSON schemas; effect keyword dictionary.
+- .claude/TS_TYPES_AND_INTERFACES.md — Source of truth for TypeScript domain models and engine API: GameState, PlayerState, Tile/Board, Item/Enemy, Combat/Duel state, events, selectors, invariants.
+- .claude/COMBAT_AND_DUELS.md — Exact combat spec for PvE and PvP: round flow, modifiers stacking, class passives, multi-enemy targeting, retreat/defeat outcomes, loot tables, timing edge cases.
+- .claude/TURN_AND_PHASE_MACHINE.md — Complete turn/phase graph: allowed actions per phase, entry/exit guards, endTurn clearing, pending-tile resolution ordering.
+- .claude/ACTIONS_EVENTS_AND_LOGGING.md — Canonical list of client actions, engine-emitted events, and log templates; payload shapes, authorization, ordering/idempotency rules.
+- .claude/RNG_AND_SHUFFLING.md — Randomness policy: dice, shuffles, weighted picks, audit logging, deterministic seeding, replay/test hooks.
+- .claude/BOARD_AND_MOVEMENT_SPEC.md — Board JSON schema and movement rules: branching, path-history stack, backward traversal when history is empty, pass-over triggers, tie-breaking, Lamp timing.
+- .claude/ITEMS_INVENTORY_AND_TIMING.md — Equipment/inventory rules: slots and capacities, swap windows, drop/pickup policy, play/interrupt timings, Sanctuary/trap restrictions, per-item rulings.
+- .claude/UI_COMPONENT_CONTRACT.md — UI component catalog and prop contracts: screens, data inputs, user actions mapped to engine actions, visible vs hidden info, accessibility states.
+- .claude/NETWORKING_AND_DB_SCHEMA.md — Firestore shapes and sync protocol: rooms/games schemas, indexes, optimistic concurrency, versioning/migrations, read/write rules by phase.
+- .claude/TEST_PLAN_AND_FIXTURES.md — Acceptance tests and fixtures: seeded scenarios for movement, combat, items/timing, RNG determinism, Sanctuary/duel rules, final-tile tie-breaker.
+
+
+## Timeline and Phases of the Project with Auxiliary Document References
+
+**Phase 1: Pure Game Engine (No UI/Firebase)**
+
+1. Start with TypeScript types from `TS_TYPES_AND_INTERFACES.md`
+2. Implement the board graph from `BOARD_AND_MOVEMENT_SPEC.md`
+3. Build the turn state machine from `TURN_AND_PHASE_MACHINE.md`
+4. Add RNG system from `RNG_AND_SHUFFLING.md`
+
+**Phase 2: Game Mechanics**
+
+1. Implement combat system from `COMBAT_AND_DUELS.md`
+2. Add inventory system from `ITEMS_INVENTORY_AND_TIMING.md`
+3. Load content from `CONTENT_CATALOG.md`
+4. Write unit tests for all mechanics
+
+**Phase 3: Multiplayer Infrastructure**
+
+1. Set up Firebase project and auth
+2. Implement Firestore schemas from `NETWORKING_AND_DB_SCHEMA.md`
+3. Create action handlers from `ACTIONS_EVENTS_AND_LOGGING.md`
+4. Build sync layer between engine and Firebase
+
+**Phase 4: UI & Polish**
+
+1. Build UI components from `UI_COMPONENT_CONTRACT.md`
+2. Connect UI to game state
+3. Add animations and effects
+4. Run through test scenarios from `TEST_PLAN_AND_FIXTURES.md`
