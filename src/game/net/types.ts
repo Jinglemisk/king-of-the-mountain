@@ -1,5 +1,5 @@
-import { Timestamp } from 'firebase/firestore';
-import { GameState, PlayerState as EnginePlayerState } from '../engine/types';
+import type { Timestamp } from 'firebase/firestore';
+import type { GameState, PlayerState as EnginePlayerState } from '../types';
 
 export type RoomStatus = "lobby" | "playing" | "ended";
 export type GameStatus = "setup" | "playing" | "ended";

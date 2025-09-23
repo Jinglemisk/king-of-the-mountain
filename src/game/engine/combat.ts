@@ -1,10 +1,11 @@
-import {
+import type {
   PlayerId, NodeId, ItemInstance, ClassId, EnemyInstance, Tier, DieType, ItemCategory, ItemTag, EnemyId
 } from '../types';
-import {
+import type {
   EngineState, EngineContext, DomainEvent, InternalCombatState, FightState, DuelState,
-  CombatActorSnapshot, AttackDefenseMods, DiceRoll, InternalCombatRoundLog, InvalidActionError
+  CombatActorSnapshot, AttackDefenseMods, DiceRoll, InternalCombatRoundLog
 } from './types';
+import { InvalidActionError } from './types';
 import { generateUID } from '../util/rng';
 import { ENEMIES } from '../data/content';
 

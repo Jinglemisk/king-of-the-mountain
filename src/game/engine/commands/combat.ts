@@ -1,14 +1,16 @@
-import {
+import type {
   EngineState, EngineContext, EngineUpdate, DomainEvent,
   OfferDuelAction, AcceptDuelAction, DeclineDuelAction, RetreatAction,
-  UseItemAction, InvalidActionError
+  UseItemAction
 } from '../types';
+import type { CombatTarget } from '../combat';
+import { InvalidActionError } from '../types';
 import {
   initiateCombat, resolveCombatRound, handleRetreat, checkCombatEnd,
-  applyDamage, CombatTarget
+  applyDamage
 } from '../combat';
 import { generateUID } from '../../util/rng';
-import { EnemyInstance, PlayerId } from '../../types';
+import type { EnemyInstance, PlayerId } from '../../types';
 
 export function handleOfferDuel(
   state: EngineState,

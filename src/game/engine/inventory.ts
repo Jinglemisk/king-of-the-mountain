@@ -1,9 +1,10 @@
-import {
+import type {
   ItemInstance, ItemCategory, PlayerId, ItemId, Tier, ItemTag
 } from '../types';
-import {
-  EngineState, EngineContext, DomainEvent, InvalidActionError
+import type {
+  EngineState, EngineContext, DomainEvent
 } from './types';
+import { InvalidActionError } from './types';
 import { generateUID } from '../util/rng';
 
 export interface InventorySlot {

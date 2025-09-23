@@ -1,7 +1,7 @@
 // /src/game/engine/GameEngine.ts
 // Main game engine class
 
-import {
+import type {
   GameState,
   PlayerId,
   GameId,
@@ -14,7 +14,7 @@ import {
   ItemInstance
 } from '../types';
 
-import {
+import type {
   EngineState,
   EngineApi,
   EngineContext,
@@ -24,7 +24,6 @@ import {
   Selectors,
   Invariants,
   RNG,
-  InvalidActionError,
   OfferDuelAction,
   AcceptDuelAction,
   DeclineDuelAction,
@@ -38,8 +37,10 @@ import {
   PlayHeldEffectAction,
   RetreatAction
 } from './types';
+import { InvalidActionError } from './types';
 
-import { loadBoard, BoardGraphExtended } from './board';
+import { loadBoard } from './board';
+import type { BoardGraphExtended } from './board';
 import { createRNG, createRNGState, generateUID } from '../util/rng';
 import {
   isActionAllowed,
@@ -53,13 +54,13 @@ import {
   applyLampIfEligible,
   canRetreat
 } from './movement';
+import type { CombatTarget } from './combat';
 import {
   initiateCombat,
   resolveCombatRound,
   handleRetreat as handleCombatRetreat,
   checkCombatEnd,
-  applyDamage,
-  CombatTarget
+  applyDamage
 } from './combat';
 import {
   handleOfferDuel,

@@ -1,9 +1,10 @@
-import {
+import type {
   EngineState, EngineContext, DomainEvent, DuelState, EngineUpdate
 } from './types';
-import { PlayerId, NodeId } from '../types';
+import type { PlayerId, NodeId } from '../types';
+import type { CombatTarget } from './combat';
 import { generateUID } from '../util/rng';
-import { initiateCombat, resolveCombatRound, applyDamage, CombatTarget } from './combat';
+import { initiateCombat, resolveCombatRound, applyDamage } from './combat';
 
 export interface FinalTileBracket {
   participants: PlayerId[];

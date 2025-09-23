@@ -1,11 +1,12 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import {
   getPlayerCapacity, canItemFitInSlot, findItemInInventory,
-  removeItemFromSlot, addItemToSlot, swapItems, enforceCapacity,
-  handleColocatedPickup, useItem, equipItem, InventorySlot, ItemMove
+  removeItemFromSlot, addItemToSlot, enforceCapacity,
+  useItem
 } from '../inventory';
-import { EngineState, EngineContext } from '../types';
-import { ItemInstance } from '../../types';
+import type { InventorySlot, ItemMove } from '../inventory';
+import type { EngineState, EngineContext } from '../types';
+import type { ItemInstance } from '../../types';
 import { generateUID } from '../../util/rng';
 
 describe('Inventory System', () => {

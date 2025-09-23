@@ -1,7 +1,7 @@
 // /src/game/engine/board.ts
 // Board graph implementation with validation and traversal utilities
 
-import { BoardGraph, BoardNode, NodeId, TileType, Tier } from '../types';
+import type { BoardGraph, BoardNode, NodeId, TileType, Tier } from '../types';
 import boardDataV1 from '../data/board.v1.json';
 
 export interface ValidationResult {
@@ -242,3 +242,10 @@ export function isValidPath(board: BoardGraph, from: NodeId, to: NodeId): boolea
   const node = getTileNode(board, from);
   return node ? node.neighbors.includes(to) : false;
 }
+
+// Default board instance for UI components (with tiles alias for backward compatibility)
+const boardInstance = loadBoard('board.v1');
+export const BOARD = {
+  ...boardInstance,
+  tiles: boardInstance.nodes // UI expects 'tiles' instead of 'nodes'
+};

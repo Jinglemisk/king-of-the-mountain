@@ -1,16 +1,17 @@
-import {
+import type {
   EngineState, EngineContext, EngineUpdate, DomainEvent,
   UseItemAction, EquipItemAction, UnequipItemAction, SwapEquipmentAction,
-  DropItemAction, PickUpDroppedAction, ConsumePotionAction, PlayHeldEffectAction,
-  InvalidActionError
+  DropItemAction, PickUpDroppedAction, ConsumePotionAction, PlayHeldEffectAction
 } from '../types';
+import type { InventorySlot, ItemMove } from '../inventory';
+import { InvalidActionError } from '../types';
 import {
   findItemInInventory, removeItemFromSlot, addItemToSlot, swapItems,
   enforceCapacity, handleColocatedPickup, useItem, equipItem,
-  getPlayerCapacity, InventorySlot, ItemMove
+  getPlayerCapacity
 } from '../inventory';
 import { generateUID } from '../../util/rng';
-import { ItemInstance } from '../../types';
+import type { ItemInstance } from '../../types';
 
 export function handleUseItem(
   state: EngineState,

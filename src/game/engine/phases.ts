@@ -1,8 +1,8 @@
 // /src/game/engine/phases.ts
 // Turn and phase state machine implementation
 
-import { GamePhase, PlayerId } from '../types';
-import {
+import type { GamePhase, PlayerId } from '../types';
+import type {
   EngineState,
   EngineContext,
   EngineUpdate,

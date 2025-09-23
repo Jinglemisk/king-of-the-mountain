@@ -1,6 +1,7 @@
-import { Unsubscribe } from 'firebase/firestore';
-import { GameDoc, RoomDoc, LogEntry, ChatMessage, ClientAction } from './types';
-import { GameState, GameAction } from '../engine/types';
+import type { Unsubscribe } from 'firebase/firestore';
+import type { GameDoc, RoomDoc, LogEntry, ChatMessage, ClientAction } from './types';
+import type { GameState } from '../types';
+import type { GameAction } from '../engine/types';
 import { GameEngine } from '../engine/GameEngine';
 import {
   subscribeToGame,

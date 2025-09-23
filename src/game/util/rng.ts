@@ -246,3 +246,8 @@ export function generateUID(): string {
   const random = Math.random().toString(36).substring(2, 9);
   return `${timestamp}-${random}-${uidCounter}`;
 }
+
+// Simple helper for rolling a D6 (used in gameService for turn order)
+export function rollD6(): number {
+  return Math.floor(Math.random() * 6) + 1;
+}

@@ -1,9 +1,10 @@
 // /src/game/engine/movement.ts
 // Movement system implementation
 
-import { NodeId, PlayerId, TileType } from '../types';
-import { EngineState } from './types';
-import { BoardGraphExtended, getPredecessors, getTileNode, isValidPath } from './board';
+import type { NodeId, PlayerId, TileType } from '../types';
+import type { EngineState } from './types';
+import type { BoardGraphExtended } from './board';
+import { getPredecessors, getTileNode, isValidPath } from './board';
 
 export type MoveStyle = 'step' | 'teleport' | 'mass';
 export type MoveDirection = 'forward' | 'backward' | 'none';

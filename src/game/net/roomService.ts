@@ -6,11 +6,11 @@ import {
   onSnapshot,
   runTransaction,
   serverTimestamp,
-  Unsubscribe,
-  writeBatch
+  writeBatch,
+  type Unsubscribe
 } from 'firebase/firestore';
 import { getDb, getCurrentUser } from './firebase';
-import { RoomDoc, Seat } from './types';
+import type { RoomDoc, Seat } from './types';
 
 const ROOM_CODE_LENGTH = 6;
 const ROOM_EXPIRY_HOURS = 2;

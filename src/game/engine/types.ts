@@ -216,6 +216,9 @@ export type Action =
   | DropItemAction
   | PickUpDroppedAction;
 
+// Type alias for compatibility with networking layer
+export type GameAction = Action;
+
 // Domain events (engine-emitted). Full payload spec in ACTIONS_EVENTS_AND_LOGGING.
 export type DomainEventType =
   | 'GameStarted'

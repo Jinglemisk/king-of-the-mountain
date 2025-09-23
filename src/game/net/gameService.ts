@@ -9,15 +9,15 @@ import {
   runTransaction,
   serverTimestamp,
   writeBatch,
-  Unsubscribe,
   query,
   orderBy,
   limit,
-  QuerySnapshot,
-  DocumentData
+  type Unsubscribe,
+  type QuerySnapshot,
+  type DocumentData
 } from 'firebase/firestore';
 import { getDb, getCurrentUser } from './firebase';
-import {
+import type {
   GameDoc,
   NetworkPlayerState,
   LogEntry,
@@ -31,7 +31,7 @@ import {
   FinalTileTie,
   CardId
 } from './types';
-import { GameState } from '../engine/types';
+import type { GameState } from '../types';
 import { GameEngine } from '../engine/GameEngine';
 import { rollD6 } from '../util/rng';
 

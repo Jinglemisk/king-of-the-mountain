@@ -1,4 +1,5 @@
-import { GameState, GameAction } from '../engine/types';
+import type { GameState } from '../types';
+import type { GameAction } from '../engine/types';
 import { getSyncManager } from './syncManager';
 import { addGameLog } from './gameService';
 import { getCurrentUser } from './firebase';

@@ -17,12 +17,15 @@ export {
   validateMovePath
 } from './movement';
 
+export { InvalidActionError } from './types';
+
 export type {
   EngineState,
   EngineApi,
   EngineContext,
   EngineUpdate,
   Action,
+  GameAction,
   DomainEvent,
   DomainEventType,
   ActionType,
@@ -30,7 +33,6 @@ export type {
   Invariants,
   RNG,
   DiceRoll,
-  InvalidActionError,
   InternalCombatState,
   FightState,
   DuelState

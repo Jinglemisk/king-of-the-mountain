@@ -1,9 +1,10 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import {
   resolveCombatRound, initiateCombat, handleRetreat, checkCombatEnd,
-  applyDamage, CombatTarget
+  applyDamage
 } from '../combat';
-import { EngineState, EngineContext, FightState, DuelState } from '../types';
+import type { CombatTarget } from '../combat';
+import type { EngineState, EngineContext, FightState, DuelState } from '../types';
 import { createEnemyInstance } from '../../data/content';
 import { generateUID } from '../../util/rng';
 
