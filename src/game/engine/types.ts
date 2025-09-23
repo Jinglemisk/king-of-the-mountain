@@ -1,7 +1,7 @@
 // /src/game/engine/types.ts
 // Version: 1.0.0
 
-import {
+import type {
   UID, PlayerId, GameId, NodeId, ItemInstance, ItemInstancePublic,
   ClassId, BoardGraph, PlayerState as SharedPlayerState, GamePhase,
   GameState as SharedGameState, TileStateMap, DeckState, TreasureDecksState,
@@ -272,8 +272,13 @@ export interface EngineUpdate {
 
 // Validation errors
 export class InvalidActionError extends Error {
-  constructor(public reason: string, public action: Action) {
+  reason: string;
+  action: Action;
+
+  constructor(reason: string, action: Action) {
     super(reason);
+    this.reason = reason;
+    this.action = action;
     this.name = 'InvalidActionError';
   }
 }

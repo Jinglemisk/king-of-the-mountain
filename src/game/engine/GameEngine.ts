@@ -9,7 +9,9 @@ import {
   ClassId,
   PlayerState,
   GamePhase,
-  CombatPublicState
+  CombatPublicState,
+  EnemyInstance,
+  ItemInstance
 } from '../types';
 
 import {
@@ -22,11 +24,23 @@ import {
   Selectors,
   Invariants,
   RNG,
-  InvalidActionError
+  InvalidActionError,
+  OfferDuelAction,
+  AcceptDuelAction,
+  DeclineDuelAction,
+  UseItemAction,
+  EquipItemAction,
+  UnequipItemAction,
+  SwapEquipmentAction,
+  DropItemAction,
+  PickUpDroppedAction,
+  ConsumePotionAction,
+  PlayHeldEffectAction,
+  RetreatAction
 } from './types';
 
 import { loadBoard, BoardGraphExtended } from './board';
-import { createRNG, createRNGState } from '../util/rng';
+import { createRNG, createRNGState, generateUID } from '../util/rng';
 import {
   isActionAllowed,
   getNextPhase,
@@ -39,6 +53,40 @@ import {
   applyLampIfEligible,
   canRetreat
 } from './movement';
+import {
+  initiateCombat,
+  resolveCombatRound,
+  handleRetreat as handleCombatRetreat,
+  checkCombatEnd,
+  applyDamage,
+  CombatTarget
+} from './combat';
+import {
+  handleOfferDuel,
+  handleAcceptDuel,
+  handleDeclineDuel,
+  handleCombatTargeting,
+  startCombatWithEnemies
+} from './commands/combat';
+import {
+  handleUseItem,
+  handleEquipItem,
+  handleUnequipItem,
+  handleSwapEquipment,
+  handleDropItem,
+  handlePickUpDropped,
+  handleConsumePotion,
+  handlePlayHeldEffect,
+  handleCapacityEnforcement
+} from './commands/items';
+import {
+  getEnemyComposition,
+  createEnemyInstance,
+  getTreasureDeck,
+  getChanceDeck,
+  getEnemyDeck,
+  createItemInstance
+} from '../data/content';
 
 export class GameEngine implements EngineApi {
   // Invariants
@@ -120,9 +168,31 @@ export class GameEngine implements EngineApi {
       case 'resolvePendingTile':
         return this.handleResolvePendingTile(state, action, ctx);
       case 'retreat':
-        return this.handleRetreat(state, action, ctx);
+        return this.handleRetreat(state, action as RetreatAction, ctx);
       case 'endTurn':
         return this.handleEndTurn(state, action, ctx);
+      case 'offerDuel':
+        return handleOfferDuel(state, action as OfferDuelAction, ctx);
+      case 'acceptDuel':
+        return handleAcceptDuel(state, action as AcceptDuelAction, ctx);
+      case 'declineDuel':
+        return handleDeclineDuel(state, action as DeclineDuelAction, ctx);
+      case 'useItem':
+        return handleUseItem(state, action as UseItemAction, ctx);
+      case 'equipItem':
+        return handleEquipItem(state, action as EquipItemAction, ctx);
+      case 'unequipItem':
+        return handleUnequipItem(state, action as UnequipItemAction, ctx);
+      case 'swapEquipment':
+        return handleSwapEquipment(state, action as SwapEquipmentAction, ctx);
+      case 'dropItem':
+        return handleDropItem(state, action as DropItemAction, ctx);
+      case 'pickUpDropped':
+        return handlePickUpDropped(state, action as PickUpDroppedAction, ctx);
+      case 'consumePotion':
+        return handleConsumePotion(state, action as ConsumePotionAction, ctx);
+      case 'playHeldEffect':
+        return handlePlayHeldEffect(state, action as PlayHeldEffectAction, ctx);
       default:
         // Placeholder for other actions
         return { state, events: [] };
@@ -277,14 +347,50 @@ export class GameEngine implements EngineApi {
     // Set game status to playing
     newState.status = 'playing';
     newState.currentPlayer = newState.order.seats[0];
+    newState.currentTurn = 0;
+    newState.turnOrder = newState.order.seats;
+    newState.turnCounter = 1;
+    newState.startTime = ctx.now();
 
-    // Shuffle decks (would implement actual deck content loading)
+    // Initialize game decks
     const rng = ctx.rng;
 
-    // TODO: Load actual deck content from data files
-    // For now, just emit the event
+    // Load and shuffle treasure decks
+    newState.decks.treasureT1 = {
+      drawPile: rng.shuffle(getTreasureDeck('T1')),
+      discardPile: []
+    };
+    newState.decks.treasureT2 = {
+      drawPile: rng.shuffle(getTreasureDeck('T2')),
+      discardPile: []
+    };
+    newState.decks.treasureT3 = {
+      drawPile: rng.shuffle(getTreasureDeck('T3')),
+      discardPile: []
+    };
+
+    // Load and shuffle chance deck
+    newState.decks.chance = {
+      drawPile: rng.shuffle(getChanceDeck()),
+      discardPile: []
+    };
+
+    // Load enemy decks (for spawning)
+    newState.decks.enemyT1 = {
+      drawPile: rng.shuffle(getEnemyDeck('T1')),
+      discardPile: []
+    };
+    newState.decks.enemyT2 = {
+      drawPile: rng.shuffle(getEnemyDeck('T2')),
+      discardPile: []
+    };
+    newState.decks.enemyT3 = {
+      drawPile: rng.shuffle(getEnemyDeck('T3')),
+      discardPile: []
+    };
+
     events.push({
-      id: `evt_${Date.now()}`,
+      id: generateUID(),
       ts: ctx.now(),
       type: 'GameStarted',
       actor: action.uid,
@@ -430,8 +536,8 @@ export class GameEngine implements EngineApi {
       }
     });
 
-    // Still need to resolve tile (in case it's an enemy tile)
-    return applyPhaseTransition(newState, 'moveOrSleep', 'resolveTile', ctx);
+    // Skip tile resolution after sleep, go to capacity phase
+    return applyPhaseTransition(newState, 'moveOrSleep', 'capacity', ctx);
   }
 
   private handleEndTurn(
@@ -445,7 +551,17 @@ export class GameEngine implements EngineApi {
     if (newState.currentPlayer) {
       const player = newState.players[newState.currentPlayer];
       player.perTurn = {};
+
+      // Clear "this turn" active effects
+      if (player.activeEffects) {
+        player.activeEffects = player.activeEffects.filter(e => e.duration !== 'this-turn');
+      }
     }
+
+    // Enforce capacity before ending turn
+    const capacityUpdate = handleCapacityEnforcement(newState, ctx);
+    newState.tiles = capacityUpdate.state.tiles;
+    newState.players = capacityUpdate.state.players;
 
     // Transition handles advancing to next player
     return applyPhaseTransition(newState, 'endTurn', 'turnStart', ctx);
@@ -531,7 +647,7 @@ export class GameEngine implements EngineApi {
 
   private handleRetreat(
     state: EngineState,
-    action: Action,
+    action: RetreatAction,
     ctx: EngineContext
   ): EngineUpdate {
     const events: DomainEvent[] = [];
@@ -552,44 +668,25 @@ export class GameEngine implements EngineApi {
         throw new InvalidActionError('Not in combat', action);
       }
 
-      // Perform retreat movement
-      const board = newState.board.graph as BoardGraphExtended;
-      const retreatResult = computeMovementSteps(
-        board,
-        player.position,
-        6,
-        {
-          actorUid: action.uid,
-          targetUid: action.uid,
-          moveStyle: 'step',
-          direction: 'backward',
-          allowPassOverTriggers: false,
-          allowDuels: false,
-          allowLamp: false,
-          source: 'retreat'
-        },
-        player.movementHistory.forwardThisTurn
+      // Use combat retreat handler
+      const { movements, events: retreatEvents } = handleCombatRetreat(
+        newState,
+        newState.combatInternal,
+        action.uid,
+        ctx
       );
 
-      // Update position
-      player.position = retreatResult.stoppedOn;
-      newState.board.playerPositions[action.uid] = retreatResult.stoppedOn;
-      player.movementHistory.forwardThisTurn = retreatResult.historyAfter || [];
+      // Apply movements
+      for (const [playerId, newPosition] of movements) {
+        newState.players[playerId].position = newPosition;
+        newState.board.playerPositions[playerId] = newPosition;
+        newState.players[playerId].pendingTileResolution = true;
+      }
 
       // Clear combat
       newState.combatInternal = null;
 
-      events.push({
-        id: `evt_${Date.now()}`,
-        ts: ctx.now(),
-        type: 'RetreatExecuted',
-        actor: action.uid,
-        payload: {
-          from: player.position,
-          to: retreatResult.stoppedOn,
-          steps: retreatResult.path.length
-        }
-      });
+      events.push(...retreatEvents);
 
       // End turn immediately if current player retreats
       if (action.uid === newState.currentPlayer) {

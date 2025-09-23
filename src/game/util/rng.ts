@@ -1,8 +1,8 @@
 // /src/game/util/rng.ts
 // RNG implementation with deterministic seeded mode and crypto mode
 
-import { RNGState, PlayerId, DieType, RngAuditEntry } from '../types';
-import { RNG, DiceRoll } from '../engine/types';
+import type { RNGState, PlayerId, DieType, RngAuditEntry } from '../types';
+import type { RNG, DiceRoll } from '../engine/types';
 
 export type RNGMode = 'crypto' | 'seeded';
 export type RNGTag = string;
@@ -236,4 +236,13 @@ export function createRNGState(seed?: string): RNGState {
     counter: 0,
     audit: []
   };
+}
+
+// Helper to generate unique IDs
+let uidCounter = 0;
+export function generateUID(): string {
+  uidCounter++;
+  const timestamp = Date.now().toString(36);
+  const random = Math.random().toString(36).substring(2, 9);
+  return `${timestamp}-${random}-${uidCounter}`;
 }
