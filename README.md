@@ -576,30 +576,36 @@ Game
 
 ## Timeline and Phases of the Project with Auxiliary Document References
 
-**Phase 1: Pure Game Engine (No UI/Firebase)**
+### Phase 1: Pure Game Engine (No UI/Firebase)
 
-1. Start with TypeScript types from `TS_TYPES_AND_INTERFACES.md`
-2. Implement the board graph from `BOARD_AND_MOVEMENT_SPEC.md`
-3. Build the turn state machine from `TURN_AND_PHASE_MACHINE.md`
-4. Add RNG system from `RNG_AND_SHUFFLING.md`
+1. Define base TypeScript contracts from `01_ts_types_and_interfaces.md`
+2. Implement board graph and movement rules from `06_board_and_movement.md`
+3. Build the turn/phase state machine from `03_turn_and_phase_machine.md`
+4. Add randomness and shuffling from `05_rng_and_shuffling.md`
 
-**Phase 2: Game Mechanics**
+---
 
-1. Implement combat system from `COMBAT_AND_DUELS.md`
-2. Add inventory system from `ITEMS_INVENTORY_AND_TIMING.md`
-3. Load content from `CONTENT_CATALOG.md`
-4. Write unit tests for all mechanics
+### Phase 2: Core Game Mechanics
 
-**Phase 3: Multiplayer Infrastructure**
+1. Implement combat and duel system from `07_combat_and_duels.md`
+2. Add inventory and timing systems from `08_items_inventory_and_timing.md`
+3. Load and integrate content from `02_content_catalog.md`
+4. Write unit tests covering all mechanics
 
-1. Set up Firebase project and auth
-2. Implement Firestore schemas from `NETWORKING_AND_DB_SCHEMA.md`
-3. Create action handlers from `ACTIONS_EVENTS_AND_LOGGING.md`
-4. Build sync layer between engine and Firebase
+---
 
-**Phase 4: UI & Polish**
+### Phase 3: Multiplayer Infrastructure
 
-1. Build UI components from `UI_COMPONENT_CONTRACT.md`
-2. Connect UI to game state
-3. Add animations and effects
-4. Run through test scenarios from `TEST_PLAN_AND_FIXTURES.md`
+1. Set up Firebase project and authentication
+2. Implement Firestore schemas from `09_networking_and_db_schema.md`
+3. Create action/event handlers from `04_actions_events_and_logging.md`
+4. Build synchronization layer between engine and Firebase
+
+---
+
+### Phase 4: UI & Final Polish
+
+1. Implement UI components from `10_ui_component_contract.md`
+2. Connect UI to underlying game state
+3. Add animations, effects, and polish
+4. Run through scenarios and tests from `11_text_plan_and_fixtures.md`
