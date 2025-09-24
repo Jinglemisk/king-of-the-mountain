@@ -2,6 +2,9 @@ import type { GameDoc, LogEntry, ChatMessage, NetworkPlayerState, RoomDoc } from
 import { CLASSES } from '../data/content';
 import { getBoardLayout } from '../data/board';
 
+const DEFAULT_BOARD = getBoardLayout();
+const START_TILE_ID = DEFAULT_BOARD.nodes.find(node => node.type === 'start')?.id ?? 0;
+
 // LocalStorage key for games
 const STORAGE_KEY = 'kotm_mock_games';
 const LOGS_STORAGE_KEY = 'kotm_mock_game_logs';
@@ -187,7 +190,7 @@ export async function createGame(roomData: RoomDoc): Promise<string> {
     turnNumber: 1,
 
     board: {
-      id: 'default',
+      id: DEFAULT_BOARD.id,
       positions: {} // Will be populated with player positions
     },
 
@@ -216,7 +219,7 @@ export async function createGame(roomData: RoomDoc): Promise<string> {
 
   // Set initial player positions
   turnOrder.forEach(uid => {
-    gameDoc.board.positions[uid] = 0; // All start at tile 0
+    gameDoc.board.positions[uid] = START_TILE_ID; // All start at the board's start tile
   });
 
   mockGames.set(gameId, gameDoc);

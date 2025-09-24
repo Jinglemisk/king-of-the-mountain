@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useGameStore } from '../stores/gameStore';
 import { DiceRoll } from './DiceRoll';
+import { BOARD } from '../../data/content';
 
 export function TurnControls() {
   const {
@@ -19,7 +20,7 @@ export function TurnControls() {
   const myPlayer = getMyPlayer();
   const phase = getCurrentPhase();
   const isCurrentPlayer = isMyTurn();
-  const currentTile = gameState?.board?.tiles.find(t => t.id === myPlayer?.position);
+  const currentTile = BOARD.tiles.find(t => t.id === myPlayer?.position);
 
   // Check for other players on the same tile
   const playersOnTile = Object.values(gameState?.players || {})
