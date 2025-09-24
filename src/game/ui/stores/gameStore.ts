@@ -25,15 +25,11 @@ interface GameState {
   tileState?: any;
 }
 
-type CombatState = any;
-type DuelState = any;
-
 interface RoomData {
   id: string;
   code: string;
   ownerUid: string;
   gameId?: string;
-  seats: Record<number, any>;
 }
 
 interface UIState {

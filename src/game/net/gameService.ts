@@ -16,7 +16,8 @@ import {
   type QuerySnapshot,
   type DocumentData
 } from 'firebase/firestore';
-import { getDb, getCurrentUser } from './firebase';
+import { getDb, getCurrentUser, isInMockMode } from './firebase';
+import * as mockGameService from './mockGameService';
 import type {
   GameDoc,
   NetworkPlayerState,
@@ -38,12 +39,26 @@ import { rollD6 } from '../util/rng';
 const SCHEMA_VERSION = '1.0.0';
 
 export async function startGame(roomCode: string): Promise<string> {
-  const db = getDb();
   const user = getCurrentUser();
 
   if (!user) {
     throw new Error('User not authenticated');
   }
+
+  // Use mock service in mock mode
+  if (isInMockMode()) {
+    // Get room data from localStorage
+    const roomsData = localStorage.getItem('kotm_mock_rooms');
+    if (!roomsData) throw new Error('No rooms found');
+
+    const rooms = JSON.parse(roomsData);
+    const roomData = rooms[roomCode.toUpperCase()];
+    if (!roomData) throw new Error('Room not found');
+
+    return mockGameService.createGame(roomData);
+  }
+
+  const db = getDb();
 
   const roomRef = doc(db, 'rooms', roomCode.toUpperCase());
 
@@ -306,6 +321,11 @@ export function subscribeToGame(
   gameId: string,
   callback: (game: GameDoc | null) => void
 ): Unsubscribe {
+  // Use mock service in mock mode
+  if (isInMockMode()) {
+    return mockGameService.subscribeToGame(gameId, callback);
+  }
+
   const db = getDb();
   const gameRef = doc(db, 'games', gameId);
 
@@ -323,6 +343,11 @@ export function subscribeToGameLog(
   callback: (logs: LogEntry[]) => void,
   limitCount: number = 50
 ): Unsubscribe {
+  // Use mock service in mock mode
+  if (isInMockMode()) {
+    return mockGameService.subscribeToGameLog(gameId, callback, limitCount);
+  }
+
   const db = getDb();
   const logQuery = query(
     collection(db, 'games', gameId, 'log'),
@@ -341,6 +366,11 @@ export function subscribeToChat(
   callback: (messages: ChatMessage[]) => void,
   limitCount: number = 100
 ): Unsubscribe {
+  // Use mock service in mock mode
+  if (isInMockMode()) {
+    return mockGameService.subscribeToChat(gameId, callback, limitCount);
+  }
+
   const db = getDb();
   const chatQuery = query(
     collection(db, 'games', gameId, 'chat'),
@@ -355,12 +385,18 @@ export function subscribeToChat(
 }
 
 export async function sendChatMessage(gameId: string, text: string, nickname: string): Promise<void> {
-  const db = getDb();
   const user = getCurrentUser();
 
   if (!user) {
     throw new Error('User not authenticated');
   }
+
+  // Use mock service in mock mode
+  if (isInMockMode()) {
+    return mockGameService.sendChatMessage(gameId, text, nickname, user.uid);
+  }
+
+  const db = getDb();
 
   const chatRef = collection(db, 'games', gameId, 'chat');
   await addDoc(chatRef, {
@@ -377,8 +413,14 @@ export async function addGameLog(
   message: string,
   payload?: any
 ): Promise<void> {
-  const db = getDb();
   const user = getCurrentUser();
+
+  // Use mock service in mock mode
+  if (isInMockMode()) {
+    return mockGameService.addGameLog(gameId, logType, message, payload, user?.uid);
+  }
+
+  const db = getDb();
 
   const logRef = collection(db, 'games', gameId, 'log');
   await addDoc(logRef, {

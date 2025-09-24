@@ -9,8 +9,9 @@ import {
   writeBatch,
   type Unsubscribe
 } from 'firebase/firestore';
-import { getDb, getCurrentUser } from './firebase';
+import { getDb, getCurrentUser, isInMockMode } from './firebase';
 import type { RoomDoc, Seat } from './types';
+import * as mockService from './mockRoomService';
 
 const ROOM_CODE_LENGTH = 6;
 const ROOM_EXPIRY_HOURS = 2;
@@ -29,12 +30,18 @@ export function generateRoomCode(): string {
 }
 
 export async function createRoom(nickname: string, maxPlayers: number = 6): Promise<string> {
-  const db = getDb();
   const user = getCurrentUser();
 
   if (!user) {
     throw new Error('User not authenticated');
   }
+
+  // Use mock service in mock mode
+  if (isInMockMode()) {
+    return mockService.createRoom(nickname, user.uid, maxPlayers);
+  }
+
+  const db = getDb();
 
   let code: string;
   let attempts = 0;
@@ -98,12 +105,18 @@ export async function createRoom(nickname: string, maxPlayers: number = 6): Prom
 }
 
 export async function joinRoom(code: string, nickname: string): Promise<number> {
-  const db = getDb();
   const user = getCurrentUser();
 
   if (!user) {
     throw new Error('User not authenticated');
   }
+
+  // Use mock service in mock mode
+  if (isInMockMode()) {
+    return mockService.joinRoom(code, nickname, user.uid);
+  }
+
+  const db = getDb();
 
   const roomRef = doc(db, 'rooms', code.toUpperCase());
 
@@ -172,12 +185,18 @@ export async function joinRoom(code: string, nickname: string): Promise<number> 
 }
 
 export async function leaveRoom(code: string): Promise<void> {
-  const db = getDb();
   const user = getCurrentUser();
 
   if (!user) {
     throw new Error('User not authenticated');
   }
+
+  // Use mock service in mock mode
+  if (isInMockMode()) {
+    return mockService.leaveRoom(code, user.uid);
+  }
+
+  const db = getDb();
 
   const roomRef = doc(db, 'rooms', code.toUpperCase());
 
@@ -236,12 +255,18 @@ export async function leaveRoom(code: string): Promise<void> {
 }
 
 export async function updateSeatReady(code: string, ready: boolean): Promise<void> {
-  const db = getDb();
   const user = getCurrentUser();
 
   if (!user) {
     throw new Error('User not authenticated');
   }
+
+  // Use mock service in mock mode
+  if (isInMockMode()) {
+    return mockService.updateSeatReady(code, ready, user.uid);
+  }
+
+  const db = getDb();
 
   const roomRef = doc(db, 'rooms', code.toUpperCase());
 
@@ -270,12 +295,18 @@ export async function updateSeatReady(code: string, ready: boolean): Promise<voi
 }
 
 export async function updateSeatClass(code: string, classId: string): Promise<void> {
-  const db = getDb();
   const user = getCurrentUser();
 
   if (!user) {
     throw new Error('User not authenticated');
   }
+
+  // Use mock service in mock mode
+  if (isInMockMode()) {
+    return mockService.updateSeatClass(code, classId, user.uid);
+  }
+
+  const db = getDb();
 
   const roomRef = doc(db, 'rooms', code.toUpperCase());
 
@@ -313,12 +344,18 @@ export async function updateSeatClass(code: string, classId: string): Promise<vo
 }
 
 export async function kickPlayer(code: string, targetSeatIndex: number): Promise<void> {
-  const db = getDb();
   const user = getCurrentUser();
 
   if (!user) {
     throw new Error('User not authenticated');
   }
+
+  // Use mock service in mock mode
+  if (isInMockMode()) {
+    return mockService.kickPlayer(code, targetSeatIndex, user.uid);
+  }
+
+  const db = getDb();
 
   const roomRef = doc(db, 'rooms', code.toUpperCase());
 
@@ -364,6 +401,11 @@ export async function kickPlayer(code: string, targetSeatIndex: number): Promise
 }
 
 export function subscribeToRoom(code: string, callback: (room: RoomDoc | null) => void): Unsubscribe {
+  // Use mock service in mock mode
+  if (isInMockMode()) {
+    return mockService.subscribeToRoom(code, callback);
+  }
+
   const db = getDb();
   const roomRef = doc(db, 'rooms', code.toUpperCase());
 
@@ -377,12 +419,18 @@ export function subscribeToRoom(code: string, callback: (room: RoomDoc | null) =
 }
 
 export async function updateHeartbeat(code: string): Promise<void> {
-  const db = getDb();
   const user = getCurrentUser();
 
   if (!user) {
     throw new Error('User not authenticated');
   }
+
+  // Use mock service in mock mode
+  if (isInMockMode()) {
+    return mockService.updateHeartbeat(code, user.uid);
+  }
+
+  const db = getDb();
 
   const roomRef = doc(db, 'rooms', code.toUpperCase());
 
@@ -414,7 +462,13 @@ export async function updateHeartbeat(code: string): Promise<void> {
 export const selectClass = updateSeatClass;
 export const toggleReady = (code: string) => updateSeatReady(code, true);
 
-export async function startGame(code: string): Promise<void> {
-  // TODO: Create game document and link to room
+export async function startGame(code: string): Promise<string> {
+  // Use mock service in mock mode
+  if (isInMockMode()) {
+    return mockService.startGame(code);
+  }
+
+  // TODO: Create game document and link to room with Firebase
   console.log('Starting game for room:', code);
+  throw new Error('Firebase game start not implemented yet');
 }

@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useGameStore } from '../stores/gameStore';
 import { CLASSES } from '../../data/content';
-import { createRoom, joinRoom, leaveRoom, selectClass, toggleReady, startGame, updateSeatReady } from '../../net/roomService';
+import { createRoom, joinRoom, leaveRoom, selectClass, startGame, updateSeatReady, subscribeToRoom } from '../../net/roomService';
+import type { RoomDoc } from '../../net/types';
 
 interface Seat {
   seatIndex: number;
@@ -21,6 +22,7 @@ export function LobbyScreen() {
   const [roomCodeInput, setRoomCodeInput] = useState(urlRoomCode || '');
   const [isJoining, setIsJoining] = useState(false);
   const [error, setError] = useState('');
+  const [roomData, setRoomData] = useState<RoomDoc | null>(null);
 
   const [seats, setSeats] = useState<Seat[]>(
     Array.from({ length: 6 }, (_, i) => ({
@@ -29,8 +31,38 @@ export function LobbyScreen() {
     }))
   );
 
+  // Subscribe to room updates
+  useEffect(() => {
+    if (!room?.code) return;
+
+    const unsubscribe = subscribeToRoom(room.code, (updatedRoom) => {
+      if (updatedRoom) {
+        setRoomData(updatedRoom);
+        setSeats(updatedRoom.seats.map(seat => ({
+          seatIndex: seat.seatIndex,
+          occupantUid: seat.uid || undefined,
+          nickname: seat.nickname || undefined,
+          classId: seat.classId || undefined,
+          ready: seat.ready || false,
+        })));
+
+        // Update room owner if changed
+        if (updatedRoom.ownerUid !== room.ownerUid) {
+          setRoom({ ...room, ownerUid: updatedRoom.ownerUid });
+        }
+
+        // Navigate to game if started
+        if (updatedRoom.gameId) {
+          navigate(`/game/${updatedRoom.gameId}`);
+        }
+      }
+    });
+
+    return () => unsubscribe();
+  }, [room?.code, navigate, setRoom]);
+
   const mySeat = seats.find(s => s.occupantUid === myUid);
-  const isOwner = room?.ownerUid === myUid;
+  const isOwner = roomData?.ownerUid === myUid || room?.ownerUid === myUid;
   const canStart = isOwner &&
     seats.filter(s => s.occupantUid).length >= 2 &&
     seats.filter(s => s.occupantUid).length <= 6 &&
@@ -51,8 +83,9 @@ export function LobbyScreen() {
         const newRoomCode = await createRoom(nickname);
         setRoom({ id: newRoomCode, code: newRoomCode, ownerUid: myUid! });
         navigate(`/lobby/${newRoomCode}`);
-      } catch (err) {
-        setError('Failed to create room');
+      } catch (err: any) {
+        console.error('Failed to create room:', err);
+        setError(err.message || 'Failed to create room');
       }
       setIsJoining(false);
     } else {
@@ -60,82 +93,76 @@ export function LobbyScreen() {
       const code = roomCodeInput || urlRoomCode;
       setIsJoining(true);
       try {
-        const seatIndex = await joinRoom(code!, nickname);
-        setRoom({ id: code!, code: code!, ownerUid: '' });
+        await joinRoom(code!, nickname);
+        setRoom({ id: code!, code: code!, ownerUid: roomData?.ownerUid || '' });
 
-        // Update seats with user in the joined seat
-        const updatedSeats = [...seats];
-        updatedSeats[seatIndex] = {
-          seatIndex,
-          occupantUid: myUid,
-          nickname,
-          ready: false,
-        };
-        setSeats(updatedSeats);
-      } catch (err) {
-        setError('Failed to join room');
+        // Room subscription will handle seat updates
+      } catch (err: any) {
+        console.error('Failed to join room:', err);
+        setError(err.message || 'Failed to join room');
       }
       setIsJoining(false);
     }
   };
 
   const handleSelectSeat = async (seatIndex: number) => {
-    if (!mySeat && seats[seatIndex].occupantUid === undefined) {
-      // Take seat
-      const updatedSeats = [...seats];
-      updatedSeats[seatIndex] = {
-        ...updatedSeats[seatIndex],
-        occupantUid: myUid,
-        nickname,
-        ready: false,
-      };
-      setSeats(updatedSeats);
-
-      // Update Firebase - already joined when creating room
+    // In mock mode, seats are handled by join/leave room
+    // This function is mainly for UI feedback now
+    if (!mySeat && seats[seatIndex].occupantUid === undefined && room?.code && nickname) {
+      try {
+        await joinRoom(room.code, nickname);
+      } catch (err: any) {
+        console.error('Failed to take seat:', err);
+        setError(err.message || 'Failed to take seat');
+      }
     }
   };
 
   const handleLeaveSeat = async () => {
-    if (mySeat) {
-      const updatedSeats = [...seats];
-      updatedSeats[mySeat.seatIndex] = {
-        seatIndex: mySeat.seatIndex,
-        ready: false,
-      };
-      setSeats(updatedSeats);
-
-      // Update Firebase
-      await leaveRoom(room!.code);
+    if (mySeat && room?.code) {
+      try {
+        await leaveRoom(room.code);
+        // Room subscription will handle seat updates
+      } catch (err: any) {
+        console.error('Failed to leave seat:', err);
+        setError(err.message || 'Failed to leave seat');
+      }
     }
   };
 
   const handleSelectClass = async (classId: string) => {
-    if (mySeat && !takenClasses.includes(classId)) {
-      const updatedSeats = [...seats];
-      updatedSeats[mySeat.seatIndex].classId = classId;
-      setSeats(updatedSeats);
-
-      // Update Firebase
-      await selectClass(room!.code, classId);
+    if (mySeat && !takenClasses.includes(classId) && room?.code) {
+      try {
+        await selectClass(room.code, classId);
+        // Room subscription will handle seat updates
+      } catch (err: any) {
+        console.error('Failed to select class:', err);
+        setError(err.message || 'Failed to select class');
+      }
     }
   };
 
   const handleToggleReady = async () => {
-    if (mySeat && mySeat.classId) {
-      const updatedSeats = [...seats];
-      updatedSeats[mySeat.seatIndex].ready = !mySeat.ready;
-      setSeats(updatedSeats);
-
-      // Update Firebase
-      await updateSeatReady(room!.code, !mySeat.ready);
+    if (mySeat && mySeat.classId && room?.code) {
+      try {
+        await updateSeatReady(room.code, !mySeat.ready);
+        // Room subscription will handle seat updates
+      } catch (err: any) {
+        console.error('Failed to toggle ready:', err);
+        setError(err.message || 'Failed to toggle ready');
+      }
     }
   };
 
   const handleStartGame = async () => {
-    if (canStart) {
-      await startGame(room!.code);
-      // TODO: Get gameId from response and navigate
-      navigate(`/game/${room!.code}`);
+    if (canStart && room?.code) {
+      try {
+        await startGame(room.code);
+        // Room subscription will handle navigation when game starts
+      } catch (err: any) {
+        console.error('Failed to start game:', err);
+        setError(err.message || 'Failed to start game');
+      }
     }
   };
 
@@ -311,9 +338,9 @@ export function LobbyScreen() {
                         <div className="text-sm text-gray-600 dark:text-gray-400 mt-1">
                           {classData.passive}
                         </div>
-                        {classData.startingItems && classData.startingItems.length > 0 && (
+                        {classData.startItems && classData.startItems.length > 0 && (
                           <div className="text-xs text-gray-500 dark:text-gray-500 mt-1">
-                            Starts with: {classData.startingItems.join(', ')}
+                            Starts with: {classData.startItems.join(', ')}
                           </div>
                         )}
                       </div>
