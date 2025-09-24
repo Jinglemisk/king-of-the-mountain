@@ -578,18 +578,18 @@ Game
 
 ### Phase 1: Pure Game Engine (No UI/Firebase)
 
-1. Define base TypeScript contracts from `01_ts_types_and_interfaces.md`
-2. Implement board graph and movement rules from `06_board_and_movement.md`
-3. Build the turn/phase state machine from `03_turn_and_phase_machine.md`
-4. Add randomness and shuffling from `05_rng_and_shuffling.md`
+1. Define base TypeScript contracts from `ts_types_and_interfaces.md`
+2. Implement board graph and movement rules from `board_and_movement.md`
+3. Build the turn/phase state machine from `turn_and_phase_machine.md`
+4. Add randomness and shuffling from `rng_and_shuffling.md`
 
 ---
 
 ### Phase 2: Core Game Mechanics
 
-1. Implement combat and duel system from `07_combat_and_duels.md`
-2. Add inventory and timing systems from `08_items_inventory_and_timing.md`
-3. Load and integrate content from `02_content_catalog.md`
+1. Implement combat and duel system from `combat_and_duels.md`
+2. Add inventory and timing systems from `items_inventory_and_timing.md`
+3. Load and integrate content from `content_catalog.md`
 4. Write unit tests covering all mechanics
 
 ---
@@ -597,15 +597,15 @@ Game
 ### Phase 3: Multiplayer Infrastructure
 
 1. Set up Firebase project and authentication
-2. Implement Firestore schemas from `09_networking_and_db_schema.md`
-3. Create action/event handlers from `04_actions_events_and_logging.md`
+2. Implement Firestore schemas from `networking_and_db_schema.md`
+3. Create action/event handlers from `actions_events_and_logging.md`
 4. Build synchronization layer between engine and Firebase
 
 ---
 
 ### Phase 4: UI & Final Polish
 
-1. Implement UI components from `10_ui_component_contract.md`
+1. Implement UI components from `ui_component_contract.md`
 2. Connect UI to underlying game state
 3. Add animations, effects, and polish
-4. Run through scenarios and tests from `11_text_plan_and_fixtures.md`
+4. Run through scenarios and tests from `text_plan_and_fixtures.md`
