@@ -1,13 +1,12 @@
 import type {
-  PlayerId, NodeId, ItemInstance, ClassId, EnemyInstance, Tier, DieType, ItemCategory, ItemTag, EnemyId
+  PlayerId, NodeId, ItemInstance, ClassId, EnemyInstance, Tier, DieType, ItemCategory
 } from '../types';
 import type {
   EngineState, EngineContext, DomainEvent, InternalCombatState, FightState, DuelState,
-  CombatActorSnapshot, AttackDefenseMods, DiceRoll, InternalCombatRoundLog
+  AttackDefenseMods, DiceRoll, InternalCombatRoundLog
 } from './types';
-import { InvalidActionError } from './types';
 import { generateUID } from '../util/rng';
-import { ENEMIES } from '../data/content';
+import { ENEMIES, ITEMS } from '../data/content';
 
 export interface CombatTarget {
   enemyIndex?: number;
@@ -44,42 +43,42 @@ function getPlayerModifiers(state: EngineState, playerId: PlayerId, isPvE: boole
   let attackVsCreatures = 0;
   let defenseVsCreatures = 0;
 
-  if (player.classId === 'hunter' && isPvE) {
+  if (player.classId === 'class.hunter.v1' && isPvE) {
     attackVsCreatures += 1;
   }
-  if (player.classId === 'guardian' && isPvE) {
+  if (player.classId === 'class.guardian.v1' && isPvE) {
     defenseVsCreatures += 1;
   }
-  if (player.classId === 'duelist' && !isPvE) {
+  if (player.classId === 'class.duelist.v1' && !isPvE) {
     attackBonus += 1;
   }
 
   const equipment = [...player.equipped.holdables, player.equipped.wearable].filter(Boolean) as ItemInstance[];
-  const inventory = [...player.inventory.bandolier, ...player.inventory.backpack];
-  const allItems = [...equipment, ...inventory];
 
   for (const item of equipment) {
-    if (item.tags?.includes('weapon')) {
-      if (item.id === 'dagger') attackBonus += 1;
-      else if (item.id === 'lords-sword') attackBonus += 2;
-      else if (item.id === 'dragonfang') attackBonus += 3;
-      else if (item.id === 'boogey-bane' && isPvE) attackVsCreatures += 2;
+    const itemDef = ITEMS[item.defId];
+    if (!itemDef) continue;
+
+    if (itemDef.tags?.includes('weapon')) {
+      if (itemDef.id === 'dagger') attackBonus += 1;
+      else if (itemDef.id === 'lords-sword') attackBonus += 2;
+      else if (itemDef.id === 'dragonfang') attackBonus += 3;
+      else if (itemDef.id === 'boogey-bane' && isPvE) attackVsCreatures += 2;
     }
-    if (item.tags?.includes('armor') || item.tags?.includes('shield')) {
-      if (item.id === 'wooden-shield') defenseBonus += 1;
-      else if (item.id === 'silver-shield') defenseBonus += 2;
-      else if (item.id === 'heirloom-armor') defenseBonus += 2;
-      else if (item.id === 'royal-aegis') defenseBonus += 3;
+    if (itemDef.tags?.includes('armor') || itemDef.tags?.includes('shield')) {
+      if (itemDef.id === 'wooden-shield') defenseBonus += 1;
+      else if (itemDef.id === 'silver-shield') defenseBonus += 2;
+      else if (itemDef.id === 'heirloom-armor') defenseBonus += 2;
+      else if (itemDef.id === 'royal-aegis') defenseBonus += 3;
     }
   }
 
-  for (const effect of player.activeEffects || []) {
-    if (effect.type === 'rage-potion' && effect.duration === 'this-turn') {
-      attackBonus += 1;
-    }
-    if (effect.type === 'agility-draught' && effect.duration === 'this-turn') {
-      defenseBonus += 1;
-    }
+  // Check for temporary potion effects
+  if (player.perTurn?.attackBonusThisTurn) {
+    attackBonus += player.perTurn.attackBonusThisTurn;
+  }
+  if (player.perTurn?.defenseBonusThisTurn) {
+    defenseBonus += player.perTurn.defenseBonusThisTurn;
   }
 
   return {
@@ -91,32 +90,12 @@ function getPlayerModifiers(state: EngineState, playerId: PlayerId, isPvE: boole
 }
 
 function getEnemyModifiers(enemy: EnemyInstance): AttackDefenseMods {
-  let attackBonus = 0;
-  let defenseBonus = 0;
-
-  if (enemy.id === 'goblin') {
-    attackBonus = 1;
-    defenseBonus = 0;
-  } else if (enemy.id === 'skeleton') {
-    attackBonus = 1;
-    defenseBonus = 1;
-  } else if (enemy.id === 'bandit') {
-    attackBonus = 1;
-    defenseBonus = 1;
-  } else if (enemy.id === 'wolf') {
-    attackBonus = 2;
-    defenseBonus = -1;
-  } else if (enemy.id === 'orc') {
-    attackBonus = 2;
-    defenseBonus = 1;
-  } else if (enemy.id === 'troll') {
-    attackBonus = 3;
-    defenseBonus = 0;
-  }
+  const enemyDef = ENEMIES[enemy.defId];
+  if (!enemyDef) return { attack: 0, defense: 0 };
 
   return {
-    attack: attackBonus,
-    defense: defenseBonus
+    attack: enemyDef.attack,
+    defense: enemyDef.defense
   };
 }
 
@@ -173,10 +152,10 @@ export function resolveCombatRound(
       }
     }
 
-    const hasWardstone = player.equipped.holdables.some(h => h?.id === 'wardstone') ||
-                         player.equipped.wearable?.id === 'wardstone' ||
-                         player.inventory.bandolier.some(i => i?.id === 'wardstone') ||
-                         player.inventory.backpack.some(i => i?.id === 'wardstone');
+    const hasWardstone = player.equipped.holdables.some(h => h && ITEMS[h.defId]?.id === 'wardstone') ||
+                         (player.equipped.wearable && ITEMS[player.equipped.wearable.defId]?.id === 'wardstone') ||
+                         player.inventory.bandolier.some(i => i && ITEMS[i.defId]?.id === 'wardstone') ||
+                         player.inventory.backpack.some(i => i && ITEMS[i.defId]?.id === 'wardstone');
 
     if (hasWardstone && damageToPlayer.has(combat.playerId)) {
       const damage = damageToPlayer.get(combat.playerId)!;
@@ -193,8 +172,8 @@ export function resolveCombatRound(
     }
 
     for (const [enemyIdx, damage] of damageToEnemies) {
-      combat.enemyQueue[enemyIdx].hp -= damage;
-      if (combat.enemyQueue[enemyIdx].hp <= 0) {
+      combat.enemyQueue[enemyIdx].currentHp -= damage;
+      if (combat.enemyQueue[enemyIdx].currentHp <= 0) {
         defeatedEnemies.push(enemyIdx);
       }
     }
@@ -234,7 +213,7 @@ export function resolveCombatRound(
     combat.roundLog.push(log);
 
   } else if (combat.type === 'duel') {
-    const attackerId = state.turnOrder[state.currentTurn];
+    const attackerId = state.order.seats[state.order.currentIdx];
     const defenderId = combat.a === attackerId ? combat.b : combat.a;
 
     const attackerMods = getPlayerModifiers(state, attackerId, false);
@@ -245,7 +224,7 @@ export function resolveCombatRound(
     const defenderAttackRoll = ctx.rng.roll('d6', defenderId, `duel-${roundNumber}-defender-attack`);
     let defenderDefenseRoll = ctx.rng.roll('d6', defenderId, `duel-${roundNumber}-defender-defense`);
 
-    const defenderIsDuelist = state.players[defenderId].classId === 'duelist';
+    const defenderIsDuelist = state.players[defenderId].classId === 'class.duelist.v1';
     if (defenderIsDuelist && !combat.defenseRerollUsed[defenderId]) {
       const rerollChoice = Math.random() > 0.5;
       if (rerollChoice) {
@@ -276,10 +255,10 @@ export function resolveCombatRound(
 
     for (const playerId of [attackerId, defenderId]) {
       const player = state.players[playerId];
-      const hasWardstone = player.equipped.holdables.some(h => h?.id === 'wardstone') ||
-                           player.equipped.wearable?.id === 'wardstone' ||
-                           player.inventory.bandolier.some(i => i?.id === 'wardstone') ||
-                           player.inventory.backpack.some(i => i?.id === 'wardstone');
+      const hasWardstone = player.equipped.holdables.some(h => h && ITEMS[h.defId]?.id === 'wardstone') ||
+                           (player.equipped.wearable && ITEMS[player.equipped.wearable.defId]?.id === 'wardstone') ||
+                           player.inventory.bandolier.some(i => i && ITEMS[i.defId]?.id === 'wardstone') ||
+                           player.inventory.backpack.some(i => i && ITEMS[i.defId]?.id === 'wardstone');
 
       if (hasWardstone && damageToPlayer.has(playerId)) {
         const damage = damageToPlayer.get(playerId)!;
@@ -367,7 +346,7 @@ export function initiateCombat(
       enemyQueue: participants.enemyQueue.map(e => ({ ...e })),
       currentRound: 1,
       roundLog: [],
-      retreatHistorySnapshot: player.movementHistory || []
+      retreatHistorySnapshot: player.movementHistory?.forwardThisTurn || []
     };
 
     events.push({
@@ -418,7 +397,7 @@ export function handleRetreat(
   const movements = new Map<PlayerId, NodeId>();
 
   const player = state.players[retreatingPlayer];
-  const history = player.movementHistory || [];
+  const history = player.movementHistory?.forwardThisTurn || [];
   const retreatSteps = 6;
 
   let currentPos = player.position;
@@ -465,10 +444,11 @@ export function checkCombatEnd(
 
       const player = state.players[combat.playerId];
       const board = state.board;
-      const currentNode = board.nodes[player.position];
-      const prevEdges = Object.values(board.edges).filter(e => e.to === player.position);
-      if (prevEdges.length > 0) {
-        const moveBack = prevEdges[0].from;
+      // Move player back one node if defeated
+      const graph = board.graph;
+      const prevNodes = graph.reverseAdj?.get(player.position) || [];
+      if (prevNodes.length > 0) {
+        const moveBack = prevNodes[0];
         result.playerMovements = new Map([[combat.playerId, moveBack]]);
       }
 
@@ -497,10 +477,7 @@ export function checkCombatEnd(
           treasureTier = 1;
           loot.push({
             instanceId: generateUID(),
-            id: `t1-treasure-${Math.floor(Math.random() * 10)}` as any,
-            name: 'T1 Treasure',
-            category: 'treasure' as ItemCategory,
-            tier: 1
+            defId: `t1-treasure-${Math.floor(Math.random() * 10)}`
           });
         } else if (enemyDef.tier === 2) {
           if (roll < 0.7) treasureTier = 2;
@@ -508,10 +485,7 @@ export function checkCombatEnd(
 
           loot.push({
             instanceId: generateUID(),
-            id: `t${treasureTier}-treasure-${Math.floor(Math.random() * 10)}` as any,
-            name: `T${treasureTier} Treasure`,
-            category: 'treasure' as ItemCategory,
-            tier: treasureTier
+            defId: `t${treasureTier}-treasure-${Math.floor(Math.random() * 10)}`
           });
         } else if (enemyDef.tier === 3) {
           if (roll < 0.8) treasureTier = 3;
@@ -519,15 +493,12 @@ export function checkCombatEnd(
 
           loot.push({
             instanceId: generateUID(),
-            id: `t${treasureTier}-treasure-${Math.floor(Math.random() * 10)}` as any,
-            name: `T${treasureTier} Treasure`,
-            category: 'treasure' as ItemCategory,
-            tier: treasureTier
+            defId: `t${treasureTier}-treasure-${Math.floor(Math.random() * 10)}`
           });
         }
       }
 
-      if (state.players[combat.playerId].classId === 'raider') {
+      if (state.players[combat.playerId].classId === 'class.raider.v1') {
         const raiderRoll = Math.random();
         if (raiderRoll > 0.67) {
           const enemy = combat.enemyQueue[0];
@@ -535,10 +506,7 @@ export function checkCombatEnd(
           const enemyTier = enemyDef ? enemyDef.tier : 1;
           loot.push({
             instanceId: generateUID(),
-            id: `raider-bonus-t${enemyTier}` as any,
-            name: `Tier ${enemyTier} Treasure (Raider Bonus)`,
-            category: 'treasure' as ItemCategory,
-            tier: enemyTier as Tier
+            defId: `raider-bonus-t${enemyTier}`
           });
         }
       }
@@ -550,7 +518,7 @@ export function checkCombatEnd(
         ts: Date.now(),
         type: 'FightEnded',
         actor: combat.playerId,
-        payload: { result: 'victory', loot: loot.map(l => l.id) }
+        payload: { result: 'victory', loot: loot.map(l => l.defId) }
       });
 
       result.finalState = null;
@@ -601,15 +569,12 @@ export function checkCombatEnd(
       result.finalState = null;
     }
 
-    if (result.winner && state.players[result.winner].classId === 'raider') {
+    if (result.winner && state.players[result.winner].classId === 'class.raider.v1') {
       const raiderRoll = Math.random();
       if (raiderRoll > 0.67) {
         result.loot = [{
           instanceId: generateUID(),
-          id: 'raider-duel-bonus' as any,
-          name: 'Raider Duel Bonus',
-          category: 'treasure' as ItemCategory,
-          tier: 1
+          defId: 'raider-duel-bonus'
         }];
       }
     }
