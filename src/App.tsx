@@ -29,7 +29,7 @@ function App() {
 
   return (
     <BrowserRouter>
-      <div className="w-full h-screen bg-gray-100 dark:bg-gray-900">
+      <div className="w-full h-screen">
         <Routes>
           <Route path="/" element={<Navigate to="/lobby" replace />} />
           <Route path="/lobby" element={<LobbyScreen />} />

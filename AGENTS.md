@@ -1,0 +1,1 @@
+Always read the Readme.md file when beginning a task to learn more about the project. Comment your code. Remember that you are ultimately working on a browser-based boardgame that will be hosted on someone's hobby website. Note: I've had problems using 'import' instead of 'import type' because apparently the packages I use require 'import type'
