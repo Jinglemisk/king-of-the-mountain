@@ -1,5 +1,7 @@
 # Consolidated UI Revamp Execution Plan
 
+---
+
 ## Phase 1: Foundations — Asset Pipeline & Design Tokens
 This phase establishes the core visual and technical infrastructure.
 
