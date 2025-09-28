@@ -97,7 +97,6 @@ export interface EngineContext {
 // Actions (client commands). Full spec in ACTIONS_EVENTS_AND_LOGGING; kept here for typing.
 export type ActionType =
   | 'startGame'
-  | 'selectClass'
   | 'offerDuel'
   | 'acceptDuel'
   | 'declineDuel'
@@ -115,7 +114,8 @@ export type ActionType =
   | 'dropItem'            // capacity enforcement/voluntary drop
   | 'playHeldEffect'      // Ambush/Instinct etc.
   | 'consumePotion'       // alias of useItem for drinkable
-  | 'acknowledgeLog';     // UI ack
+  | 'startCombat'         // initiate combat with enemies
+  | 'rollCombat';         // roll for combat resolution
 
 export interface BaseAction<T extends ActionType = ActionType> {
   id: string;
@@ -128,10 +128,6 @@ export interface BaseAction<T extends ActionType = ActionType> {
 
 export interface StartGameAction extends BaseAction<'startGame'> {
   // No payload (owner-only, after lobby ready)
-}
-
-export interface SelectClassAction extends BaseAction<'selectClass'> {
-  classId: ClassId;
 }
 
 export interface OfferDuelAction extends BaseAction<'offerDuel'> {
@@ -195,9 +191,16 @@ export interface PickUpDroppedAction extends BaseAction<'pickUpDropped'> {
   instanceIds: string[]; // allowed if on same tile
 }
 
+export interface StartCombatAction extends BaseAction<'startCombat'> {
+  enemyIds: string[];
+}
+
+export interface RollCombatAction extends BaseAction<'rollCombat'> {
+  targetEnemyId?: string;
+}
+
 export type Action =
   | StartGameAction
-  | SelectClassAction
   | OfferDuelAction
   | AcceptDuelAction
   | DeclineDuelAction
@@ -214,7 +217,9 @@ export type Action =
   | ConsumePotionAction
   | PlayHeldEffectAction
   | DropItemAction
-  | PickUpDroppedAction;
+  | PickUpDroppedAction
+  | StartCombatAction
+  | RollCombatAction;
 
 // Type alias for compatibility with networking layer
 export type GameAction = Action;

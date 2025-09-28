@@ -25,8 +25,11 @@ export class ActionHandlers {
   async chooseSleep(): Promise<ActionResult> {
     try {
       const gameState = this.syncManager.getGameState();
+      console.log('[ActionHandlers] chooseSleep - gameState:', gameState ? 'exists' : 'null');
+
       if (!gameState) {
-        return { success: false, error: 'No active game' };
+        console.error('[ActionHandlers] No game state in syncManager');
+        return { success: false, error: 'No active game state. Please refresh the page.' };
       }
 
       const action: GameAction = {
@@ -34,6 +37,7 @@ export class ActionHandlers {
         payload: {}
       };
 
+      console.log('[ActionHandlers] Executing chooseSleep action');
       await this.syncManager.executeAction('chooseSleep', {}, action);
 
       // Log the action
@@ -51,8 +55,11 @@ export class ActionHandlers {
   async rollMovement(): Promise<ActionResult> {
     try {
       const gameState = this.syncManager.getGameState();
+      console.log('[ActionHandlers] rollMovement - gameState:', gameState ? 'exists' : 'null');
+
       if (!gameState) {
-        return { success: false, error: 'No active game' };
+        console.error('[ActionHandlers] No game state in syncManager');
+        return { success: false, error: 'No active game state. Please refresh the page.' };
       }
 
       const action: GameAction = {
@@ -60,6 +67,7 @@ export class ActionHandlers {
         payload: {}
       };
 
+      console.log('[ActionHandlers] Executing rollMovement action');
       await this.syncManager.executeAction('rollMovement', {}, action);
 
       // Log the action
@@ -82,11 +90,11 @@ export class ActionHandlers {
       }
 
       const action: GameAction = {
-        type: 'CHOOSE_BRANCH',
+        type: 'chooseBranch',
         payload: { targetNodeId }
       };
 
-      await this.syncManager.executeAction('ChooseBranch', { targetNodeId }, action);
+      await this.syncManager.executeAction('chooseBranch', { targetNodeId }, action);
 
       const gameId = this.syncManager.getGameId();
       if (gameId) {
@@ -107,11 +115,11 @@ export class ActionHandlers {
       }
 
       const action: GameAction = {
-        type: 'RESOLVE_TILE',
+        type: 'resolvePendingTile',
         payload: {}
       };
 
-      await this.syncManager.executeAction('ResolveTile', {}, action);
+      await this.syncManager.executeAction('resolvePendingTile', {}, action);
 
       return { success: true };
     } catch (error) {
@@ -127,11 +135,11 @@ export class ActionHandlers {
       }
 
       const action: GameAction = {
-        type: 'START_COMBAT',
+        type: 'startCombat',
         payload: { enemyIds }
       };
 
-      await this.syncManager.executeAction('StartCombat', { enemyIds }, action);
+      await this.syncManager.executeAction('startCombat', { enemyIds }, action);
 
       const gameId = this.syncManager.getGameId();
       if (gameId) {
@@ -152,11 +160,11 @@ export class ActionHandlers {
       }
 
       const action: GameAction = {
-        type: 'ROLL_COMBAT',
+        type: 'rollCombat',
         payload: { targetEnemyId }
       };
 
-      await this.syncManager.executeAction('RollCombat', { targetEnemyId }, action);
+      await this.syncManager.executeAction('rollCombat', { targetEnemyId }, action);
 
       return { success: true };
     } catch (error) {
@@ -172,11 +180,11 @@ export class ActionHandlers {
       }
 
       const action: GameAction = {
-        type: 'RETREAT',
+        type: 'retreat',
         payload: {}
       };
 
-      await this.syncManager.executeAction('Retreat', {}, action);
+      await this.syncManager.executeAction('retreat', {}, action);
 
       const gameId = this.syncManager.getGameId();
       if (gameId) {
@@ -197,11 +205,11 @@ export class ActionHandlers {
       }
 
       const action: GameAction = {
-        type: 'OFFER_DUEL',
+        type: 'offerDuel',
         payload: { targetPlayerId }
       };
 
-      await this.syncManager.executeAction('OfferDuel', { targetPlayerId }, action);
+      await this.syncManager.executeAction('offerDuel', { targetPlayerId }, action);
 
       const gameId = this.syncManager.getGameId();
       if (gameId) {
@@ -224,11 +232,11 @@ export class ActionHandlers {
       }
 
       const action: GameAction = {
-        type: 'ACCEPT_DUEL',
+        type: 'acceptDuel',
         payload: { duelId }
       };
 
-      await this.syncManager.executeAction('AcceptDuel', { duelId }, action);
+      await this.syncManager.executeAction('acceptDuel', { duelId }, action);
 
       const gameId = this.syncManager.getGameId();
       if (gameId) {
@@ -249,11 +257,11 @@ export class ActionHandlers {
       }
 
       const action: GameAction = {
-        type: 'DECLINE_DUEL',
+        type: 'declineDuel',
         payload: { duelId }
       };
 
-      await this.syncManager.executeAction('DeclineDuel', { duelId }, action);
+      await this.syncManager.executeAction('declineDuel', { duelId }, action);
 
       const gameId = this.syncManager.getGameId();
       if (gameId) {
@@ -274,11 +282,11 @@ export class ActionHandlers {
       }
 
       const action: GameAction = {
-        type: 'USE_ITEM',
+        type: 'useItem',
         payload: { itemId, target }
       };
 
-      await this.syncManager.executeAction('UseItem', { itemId, target }, action);
+      await this.syncManager.executeAction('useItem', { itemId, target }, action);
 
       const gameId = this.syncManager.getGameId();
       if (gameId) {
@@ -299,11 +307,11 @@ export class ActionHandlers {
       }
 
       const action: GameAction = {
-        type: 'EQUIP_ITEM',
+        type: 'equipItem',
         payload: { itemId, slot }
       };
 
-      await this.syncManager.executeAction('EquipItem', { itemId, slot }, action);
+      await this.syncManager.executeAction('equipItem', { itemId, slot }, action);
 
       const gameId = this.syncManager.getGameId();
       if (gameId) {
@@ -324,11 +332,11 @@ export class ActionHandlers {
       }
 
       const action: GameAction = {
-        type: 'SWAP_ITEMS',
+        type: 'swapEquipment',
         payload: { fromLocation, toLocation }
       };
 
-      await this.syncManager.executeAction('SwapItems', { fromLocation, toLocation }, action);
+      await this.syncManager.executeAction('swapEquipment', { fromLocation, toLocation }, action);
 
       return { success: true };
     } catch (error) {
@@ -344,11 +352,11 @@ export class ActionHandlers {
       }
 
       const action: GameAction = {
-        type: 'DROP_ITEM',
+        type: 'dropItem',
         payload: { itemId }
       };
 
-      await this.syncManager.executeAction('DropItem', { itemId }, action);
+      await this.syncManager.executeAction('dropItem', { itemId }, action);
 
       const gameId = this.syncManager.getGameId();
       if (gameId) {
@@ -369,11 +377,11 @@ export class ActionHandlers {
       }
 
       const action: GameAction = {
-        type: 'PICK_UP_ITEM',
+        type: 'pickUpDropped',
         payload: { itemId }
       };
 
-      await this.syncManager.executeAction('PickUpItem', { itemId }, action);
+      await this.syncManager.executeAction('pickUpDropped', { itemId }, action);
 
       const gameId = this.syncManager.getGameId();
       if (gameId) {
@@ -401,11 +409,11 @@ export class ActionHandlers {
       const currentPlayer = gameState.players[user.uid];
 
       const action: GameAction = {
-        type: 'END_TURN',
+        type: 'endTurn',
         payload: {}
       };
 
-      await this.syncManager.executeAction('EndTurn', {}, action);
+      await this.syncManager.executeAction('endTurn', {}, action);
 
       const gameId = this.syncManager.getGameId();
       if (gameId) {
@@ -414,6 +422,41 @@ export class ActionHandlers {
 
       return { success: true };
     } catch (error) {
+      return { success: false, error: (error as Error).message };
+    }
+  }
+
+  async continuePhase(): Promise<ActionResult> {
+    try {
+      const gameState = this.syncManager.getGameState();
+      console.log('[ActionHandlers] continuePhase - phase:', gameState?.phase);
+
+      if (!gameState) {
+        return { success: false, error: 'No active game' };
+      }
+
+      // For phases that need automatic progression, we simply end the turn
+      // The engine will handle the proper phase transitions
+      // All phases that need to continue use endTurn to progress
+      switch (gameState.phase) {
+        case 'turnStart':
+        case 'manage':
+        case 'preDuel':
+        case 'resolveTile':
+        case 'capacity':
+        case 'endTurn':
+          const action: GameAction = {
+            type: 'endTurn',
+            payload: {}
+          };
+          await this.syncManager.executeAction('endTurn', {}, action);
+          return { success: true };
+
+        default:
+          return { success: false, error: `Cannot continue from phase: ${gameState.phase}` };
+      }
+    } catch (error) {
+      console.error('[ActionHandlers] continuePhase error:', error);
       return { success: false, error: (error as Error).message };
     }
   }

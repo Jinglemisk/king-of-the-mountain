@@ -27,23 +27,26 @@ export interface PhaseGuard {
 export const phaseGuards: Record<GamePhase, PhaseGuard> = {
   turnStart: {
     phase: 'turnStart',
-    allowedActions: ['resolvePendingTile'],
+    allowedActions: ['resolvePendingTile', 'endTurn'],
     canTransition: (state, action) => {
-      // turnStart is automatic, only interrupt items allowed
+      // turnStart can progress via endTurn or handle pending tiles
+      if (action.type === 'endTurn') {
+        return action.uid === state.currentPlayer;
+      }
       return action.type === 'resolvePendingTile' ||
              action.type === 'useItem'; // For "at start of your turn" items
     }
   },
   manage: {
     phase: 'manage',
-    allowedActions: ['swapEquipment', 'equipItem', 'unequipItem', 'useItem'],
+    allowedActions: ['swapEquipment', 'equipItem', 'unequipItem', 'useItem', 'endTurn'],
     canTransition: (state, action) => {
       return action.uid === state.currentPlayer;
     }
   },
   preDuel: {
     phase: 'preDuel',
-    allowedActions: ['offerDuel', 'acceptDuel', 'declineDuel', 'useItem'],
+    allowedActions: ['offerDuel', 'acceptDuel', 'declineDuel', 'useItem', 'endTurn'],
     canTransition: (state, action) => {
       if (action.type === 'offerDuel') {
         // Any co-located player can offer duel
@@ -64,7 +67,7 @@ export const phaseGuards: Record<GamePhase, PhaseGuard> = {
   },
   resolveTile: {
     phase: 'resolveTile',
-    allowedActions: ['useItem'],
+    allowedActions: ['useItem', 'endTurn'],
     canTransition: (state, action) => {
       // Tile resolution is mostly automatic
       return action.uid === state.currentPlayer;
@@ -103,7 +106,7 @@ export const phaseGuards: Record<GamePhase, PhaseGuard> = {
   },
   capacity: {
     phase: 'capacity',
-    allowedActions: ['dropItem', 'pickUpDropped'],
+    allowedActions: ['dropItem', 'pickUpDropped', 'endTurn'],
     canTransition: (state, action) => {
       if (action.type === 'dropItem') {
         return action.uid === state.currentPlayer;
@@ -114,6 +117,9 @@ export const phaseGuards: Record<GamePhase, PhaseGuard> = {
         const currentPlayer = state.currentPlayer ? state.players[state.currentPlayer] : null;
         return actor && currentPlayer &&
                actor.position === currentPlayer.position;
+      }
+      if (action.type === 'endTurn') {
+        return action.uid === state.currentPlayer;
       }
       return false;
     }
@@ -170,6 +176,12 @@ export function getNextPhase(
       const currentPlayer = state.currentPlayer ? state.players[state.currentPlayer] : null;
       if (!currentPlayer) return 'endTurn';
 
+      // Safely access board nodes
+      if (!state.board?.graph?.nodes) {
+        console.error('[phases.ts] Board graph not properly initialized');
+        return 'endTurn';
+      }
+
       const tile = state.board.graph.nodes.find(n => n.id === currentPlayer.position);
       if (tile?.type === 'enemy') {
         return 'combat';
@@ -200,13 +212,8 @@ export function getNextPhase(
       if (state.currentPlayer && state.players[state.currentPlayer]?.pendingTileId !== undefined) {
         return 'manage';
       }
-      // Check if we're still in preDuel with co-located players
-      const currentPos = state.currentPlayer ? state.players[state.currentPlayer]?.position : null;
-      const coLocatedPlayers = Object.values(state.players)
-        .filter(p => p.uid !== state.currentPlayer && p.position === currentPos);
-      if (coLocatedPlayers.length > 0 && state.phase === 'preDuel') {
-        return 'preDuel';
-      }
+      // Always go to endTurn from capacity phase
+      // (preDuel opportunities were already handled earlier in the turn)
       return 'endTurn';
 
     case 'endTurn':
@@ -227,7 +234,10 @@ export function isActionAllowed(
   action: Action
 ): boolean {
   const guard = phaseGuards[state.phase];
-  if (!guard) return false;
+
+  if (!guard) {
+    return false;
+  }
 
   if (!guard.allowedActions.includes(action.type)) {
     return false;
@@ -258,7 +268,21 @@ export function applyPhaseTransition(
   // Apply phase-specific entry side effects
   switch (toPhase) {
     case 'turnStart':
-      // Clear per-turn effects
+      // When entering turnStart from endTurn, advance to next player
+      if (fromPhase === 'endTurn') {
+        if (newState.order && newState.order.seats && newState.order.seats.length > 0) {
+          newState.order.currentIdx = (newState.order.currentIdx + 1) % newState.order.seats.length;
+          newState.currentPlayer = newState.order.seats[newState.order.currentIdx];
+          newState.version++;
+        } else {
+          console.error('[phases] No order/seats in state during player advancement', {
+            hasOrder: !!newState.order,
+            seats: newState.order?.seats
+          });
+        }
+      }
+
+      // Clear per-turn effects for the new current player
       if (newState.currentPlayer) {
         const player = newState.players[newState.currentPlayer];
         if (player) {
@@ -285,12 +309,7 @@ export function applyPhaseTransition(
       break;
 
     case 'endTurn':
-      // Advance to next player
-      if (newState.order.seats.length > 0) {
-        newState.order.currentIdx = (newState.order.currentIdx + 1) % newState.order.seats.length;
-        newState.currentPlayer = newState.order.seats[newState.order.currentIdx];
-        newState.version++;
-      }
+      // No longer advance player here - it happens when transitioning FROM endTurn TO turnStart
       break;
   }
 

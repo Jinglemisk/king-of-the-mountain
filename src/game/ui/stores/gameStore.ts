@@ -88,6 +88,8 @@ interface GameStore {
   performBranchChoice: (targetNodeId: number) => Promise<void>;
   performDuelOffer: (targetUid: string) => Promise<void>;
   performRetreat: () => Promise<void>;
+  performEndTurn: () => Promise<void>;
+  performContinue: () => Promise<void>;
 }
 
 export const useGameStore = create<GameStore>((set, get) => ({
@@ -215,6 +217,24 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const result = await handlers.retreat();
     if (!result.success) {
       console.error('Failed to retreat:', result.error);
+      throw new Error(result.error);
+    }
+  },
+
+  performEndTurn: async () => {
+    const handlers = getActionHandlers();
+    const result = await handlers.endTurn();
+    if (!result.success) {
+      console.error('Failed to end turn:', result.error);
+      throw new Error(result.error);
+    }
+  },
+
+  performContinue: async () => {
+    const handlers = getActionHandlers();
+    const result = await handlers.continuePhase();
+    if (!result.success) {
+      console.error('Failed to continue:', result.error);
       throw new Error(result.error);
     }
   },

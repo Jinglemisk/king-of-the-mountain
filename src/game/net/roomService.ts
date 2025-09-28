@@ -12,6 +12,7 @@ import {
 import { getDb, getCurrentUser, isInMockMode } from './firebase';
 import type { RoomDoc, Seat } from './types';
 import * as mockService from './mockRoomService';
+import { useGameStore } from '../ui/stores/gameStore';
 
 const ROOM_CODE_LENGTH = 6;
 const ROOM_EXPIRY_HOURS = 2;
@@ -30,15 +31,21 @@ export function generateRoomCode(): string {
 }
 
 export async function createRoom(nickname: string, maxPlayers: number = 6): Promise<string> {
-  const user = getCurrentUser();
-
-  if (!user) {
-    throw new Error('User not authenticated');
+  // Get uid from gameStore which is the source of truth
+  const myUid = useGameStore.getState().myUid;
+  if (!myUid) {
+    throw new Error('User not authenticated - no uid in gameStore');
   }
 
   // Use mock service in mock mode
   if (isInMockMode()) {
-    return mockService.createRoom(nickname, user.uid, maxPlayers);
+    return mockService.createRoom(nickname, myUid, maxPlayers);
+  }
+
+  // For Firebase mode, still use getCurrentUser
+  const user = getCurrentUser();
+  if (!user) {
+    throw new Error('User not authenticated');
   }
 
   const db = getDb();
@@ -105,15 +112,21 @@ export async function createRoom(nickname: string, maxPlayers: number = 6): Prom
 }
 
 export async function joinRoom(code: string, nickname: string): Promise<number> {
-  const user = getCurrentUser();
-
-  if (!user) {
-    throw new Error('User not authenticated');
+  // Get uid from gameStore which is the source of truth
+  const myUid = useGameStore.getState().myUid;
+  if (!myUid) {
+    throw new Error('User not authenticated - no uid in gameStore');
   }
 
   // Use mock service in mock mode
   if (isInMockMode()) {
-    return mockService.joinRoom(code, nickname, user.uid);
+    return mockService.joinRoom(code, nickname, myUid);
+  }
+
+  // For Firebase mode, still use getCurrentUser
+  const user = getCurrentUser();
+  if (!user) {
+    throw new Error('User not authenticated');
   }
 
   const db = getDb();
@@ -185,15 +198,21 @@ export async function joinRoom(code: string, nickname: string): Promise<number> 
 }
 
 export async function leaveRoom(code: string): Promise<void> {
-  const user = getCurrentUser();
-
-  if (!user) {
-    throw new Error('User not authenticated');
+  // Get uid from gameStore which is the source of truth
+  const myUid = useGameStore.getState().myUid;
+  if (!myUid) {
+    throw new Error('User not authenticated - no uid in gameStore');
   }
 
   // Use mock service in mock mode
   if (isInMockMode()) {
-    return mockService.leaveRoom(code, user.uid);
+    return mockService.leaveRoom(code, myUid);
+  }
+
+  // For Firebase mode, still use getCurrentUser
+  const user = getCurrentUser();
+  if (!user) {
+    throw new Error('User not authenticated');
   }
 
   const db = getDb();
@@ -255,15 +274,21 @@ export async function leaveRoom(code: string): Promise<void> {
 }
 
 export async function updateSeatReady(code: string, ready: boolean): Promise<void> {
-  const user = getCurrentUser();
-
-  if (!user) {
-    throw new Error('User not authenticated');
+  // Get uid from gameStore which is the source of truth
+  const myUid = useGameStore.getState().myUid;
+  if (!myUid) {
+    throw new Error('User not authenticated - no uid in gameStore');
   }
 
   // Use mock service in mock mode
   if (isInMockMode()) {
-    return mockService.updateSeatReady(code, ready, user.uid);
+    return mockService.updateSeatReady(code, ready, myUid);
+  }
+
+  // For Firebase mode, still use getCurrentUser
+  const user = getCurrentUser();
+  if (!user) {
+    throw new Error('User not authenticated');
   }
 
   const db = getDb();
@@ -295,15 +320,21 @@ export async function updateSeatReady(code: string, ready: boolean): Promise<voi
 }
 
 export async function updateSeatClass(code: string, classId: string): Promise<void> {
-  const user = getCurrentUser();
-
-  if (!user) {
-    throw new Error('User not authenticated');
+  // Get uid from gameStore which is the source of truth
+  const myUid = useGameStore.getState().myUid;
+  if (!myUid) {
+    throw new Error('User not authenticated - no uid in gameStore');
   }
 
   // Use mock service in mock mode
   if (isInMockMode()) {
-    return mockService.updateSeatClass(code, classId, user.uid);
+    return mockService.updateSeatClass(code, classId, myUid);
+  }
+
+  // For Firebase mode, still use getCurrentUser
+  const user = getCurrentUser();
+  if (!user) {
+    throw new Error('User not authenticated');
   }
 
   const db = getDb();
@@ -344,15 +375,21 @@ export async function updateSeatClass(code: string, classId: string): Promise<vo
 }
 
 export async function kickPlayer(code: string, targetSeatIndex: number): Promise<void> {
-  const user = getCurrentUser();
-
-  if (!user) {
-    throw new Error('User not authenticated');
+  // Get uid from gameStore which is the source of truth
+  const myUid = useGameStore.getState().myUid;
+  if (!myUid) {
+    throw new Error('User not authenticated - no uid in gameStore');
   }
 
   // Use mock service in mock mode
   if (isInMockMode()) {
-    return mockService.kickPlayer(code, targetSeatIndex, user.uid);
+    return mockService.kickPlayer(code, targetSeatIndex, myUid);
+  }
+
+  // For Firebase mode, still use getCurrentUser
+  const user = getCurrentUser();
+  if (!user) {
+    throw new Error('User not authenticated');
   }
 
   const db = getDb();
@@ -419,15 +456,21 @@ export function subscribeToRoom(code: string, callback: (room: RoomDoc | null) =
 }
 
 export async function updateHeartbeat(code: string): Promise<void> {
-  const user = getCurrentUser();
-
-  if (!user) {
-    throw new Error('User not authenticated');
+  // Get uid from gameStore which is the source of truth
+  const myUid = useGameStore.getState().myUid;
+  if (!myUid) {
+    throw new Error('User not authenticated - no uid in gameStore');
   }
 
   // Use mock service in mock mode
   if (isInMockMode()) {
-    return mockService.updateHeartbeat(code, user.uid);
+    return mockService.updateHeartbeat(code, myUid);
+  }
+
+  // For Firebase mode, still use getCurrentUser
+  const user = getCurrentUser();
+  if (!user) {
+    throw new Error('User not authenticated');
   }
 
   const db = getDb();

@@ -1,4 +1,5 @@
-import type { GameDoc, LogEntry, ChatMessage, NetworkPlayerState, RoomDoc } from './types';
+import type { GameDoc, LogEntry, ChatMessage, NetworkPlayerState, RoomDoc, ClientAction } from './types';
+import type { GameState } from '../types';
 import { CLASSES } from '../data/content';
 import { getBoardLayout } from '../data/board';
 
@@ -134,6 +135,8 @@ export async function createGame(roomData: RoomDoc): Promise<string> {
   // Get active players
   const activePlayers = roomData.seats.filter(seat => seat.uid !== null);
 
+  console.log('[Mock] Creating game with active players:', activePlayers.map(s => ({ uid: s.uid, nickname: s.nickname })));
+
   // Create initial player states
   const players: Record<string, NetworkPlayerState> = {};
   const turnOrder: string[] = [];
@@ -143,6 +146,7 @@ export async function createGame(roomData: RoomDoc): Promise<string> {
     if (!seat.uid || !seat.classId) return;
 
     turnOrder.push(seat.uid);
+    console.log('[Mock] Added to turnOrder:', seat.uid, 'at index:', turnOrder.length - 1);
 
     const classData = CLASSES[seat.classId];
     players[seat.uid] = {
@@ -166,7 +170,10 @@ export async function createGame(roomData: RoomDoc): Promise<string> {
       },
       passiveFlags: {},
       cardsDrawnThisTurn: 0,
-      movementHistory: [0],
+      movementHistory: {
+        forwardThisTurn: [0], // Start at tile 0
+        lastFrom: undefined
+      },
       mustSleepNext: false,
       isAsleep: false,
       effects: []
@@ -185,13 +192,14 @@ export async function createGame(roomData: RoomDoc): Promise<string> {
     endedAt: null,
 
     currentPlayerUid: turnOrder[0],
-    phase: 'PLACE_TILE',
+    phase: 'moveOrSleep',
     turnOrder,
     turnNumber: 1,
 
     board: {
       id: DEFAULT_BOARD.id,
-      positions: {} // Will be populated with player positions
+      graph: DEFAULT_BOARD as any, // Include the board graph data
+      playerPositions: {} // Will be populated with player positions
     },
 
     players,
@@ -219,7 +227,7 @@ export async function createGame(roomData: RoomDoc): Promise<string> {
 
   // Set initial player positions
   turnOrder.forEach(uid => {
-    gameDoc.board.positions[uid] = START_TILE_ID; // All start at the board's start tile
+    gameDoc.board.playerPositions[uid] = START_TILE_ID; // All start at the board's start tile
   });
 
   mockGames.set(gameId, gameDoc);
@@ -229,6 +237,8 @@ export async function createGame(roomData: RoomDoc): Promise<string> {
   saveGamesToStorage();
 
   console.log('[Mock] Game created:', gameId);
+  console.log('[Mock] First player (currentPlayerUid):', gameDoc.currentPlayerUid);
+  console.log('[Mock] Turn order:', turnOrder);
 
   // Add initial log entry
   await addGameLog(gameId, 'game_start', 'Game started!', { players: turnOrder });
@@ -411,4 +421,62 @@ export function clearAllGames() {
   localStorage.removeItem(LOGS_STORAGE_KEY);
   localStorage.removeItem(CHAT_STORAGE_KEY);
   console.log('[Mock] All games cleared');
+}
+
+export async function applyGameAction(
+  gameId: string,
+  action: Omit<ClientAction, 'ts'>,
+  engineTransform: (state: GameState) => GameState
+): Promise<void> {
+  // Don't reload from storage if we already have the game in memory
+  // This prevents stale data issues
+  let game = mockGames.get(gameId);
+  if (!game) {
+    // Only load from storage if the game isn't in memory
+    loadGamesFromStorage();
+    game = mockGames.get(gameId);
+    if (!game) {
+      throw new Error('Game not found');
+    }
+  }
+
+  // Verify current player
+  console.log('[Mock] applyGameAction - game.currentPlayerUid:', game.currentPlayerUid);
+  console.log('[Mock] applyGameAction - action.uid:', action.uid);
+  console.log('[Mock] applyGameAction - comparison:', game.currentPlayerUid === action.uid);
+
+  if (game.currentPlayerUid !== action.uid) {
+    console.error('[Mock] Turn validation failed!');
+    console.error('[Mock] Expected currentPlayerUid:', game.currentPlayerUid);
+    console.error('[Mock] Received action.uid:', action.uid);
+    console.error('[Mock] Game version:', game.version);
+    console.error('[Mock] Game phase:', game.phase);
+    throw new Error('Not your turn');
+  }
+
+  // Apply the engine transformation
+  const currentState = game as any as GameState; // Type conversion for engine
+  const newState = engineTransform(currentState);
+
+  console.log('[Mock] Phase transition:', game.phase, '->', newState.phase);
+  console.log('[Mock] Current player after action:', newState.currentPlayer);
+
+  // Update the game state
+  const updatedGame: GameDoc = {
+    ...game,
+    ...(newState as any),
+    version: game.version + 1,
+    updatedAt: new Date()
+  };
+
+  mockGames.set(gameId, updatedGame);
+  saveGamesToStorage();
+
+  // Log the action
+  await addGameLog(gameId, 'Action', `${action.type} executed`, action.payload, action.uid);
+
+  // Notify subscribers
+  notifyGameSubscribers(gameId);
+
+  console.log(`[Mock] Applied action ${action.type} to game ${gameId}`);
 }

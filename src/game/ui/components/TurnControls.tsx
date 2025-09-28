@@ -7,6 +7,7 @@ export function TurnControls() {
   const gameStore = useGameStore();
   const {
     gameState,
+    myUid,
     getMyPlayer,
     isMyTurn,
     getCurrentPhase,
@@ -23,6 +24,10 @@ export function TurnControls() {
   const isCurrentPlayer = isMyTurn();
   const currentTile = BOARD.tiles.find(t => t.id === myPlayer?.position);
 
+  // Debug logging
+  console.log('[TurnControls] Current phase:', phase, 'Is my turn:', isCurrentPlayer);
+  console.log('[TurnControls] MyUid:', myUid, 'Current player:', gameState?.currentPlayerUid);
+
   // Check for other players on the same tile
   const playersOnTile = Object.values(gameState?.players || {})
     .filter(p => p.position === myPlayer?.position && p.uid !== myPlayer?.uid);
@@ -35,25 +40,38 @@ export function TurnControls() {
   const canSleep = phase === 'moveOrSleep' && isCurrentPlayer;
   const canMove = phase === 'moveOrSleep' && isCurrentPlayer;
   const canRetreat = (phase === 'combat' || phase === 'duel') && isCurrentPlayer;
+  const canEndTurn = phase === 'endTurn' && isCurrentPlayer;
+  // Allow ending turn from capacity phase after movement/sleep
+  const canEndFromCapacity = phase === 'capacity' && isCurrentPlayer;
+  // Need to continue through automatic phases (including turnStart)
+  const needsContinue = (phase === 'turnStart' || phase === 'manage' || phase === 'preDuel') && isCurrentPlayer;
+  // Handle resolveTile phase separately for clarity
+  const needsResolve = phase === 'resolveTile' && isCurrentPlayer;
 
   const handleSleep = async () => {
+    console.log('[TurnControls] Sleep button clicked');
     try {
       await gameStore.performSleep();
+      console.log('[TurnControls] Sleep action completed');
     } catch (error) {
-      console.error('Failed to sleep:', error);
+      console.error('[TurnControls] Failed to sleep:', error);
+      alert(`Failed to sleep: ${error}`);
     }
   };
 
   const handleMove = async () => {
+    console.log('[TurnControls] Move button clicked');
     try {
       setDiceRolling(true);
       // The actual dice roll will be handled by the server
       await gameStore.performMove();
       // Server will handle dice result and update game state
       setDiceRolling(false);
+      console.log('[TurnControls] Move action completed');
     } catch (error) {
-      console.error('Failed to move:', error);
+      console.error('[TurnControls] Failed to move:', error);
       setDiceRolling(false);
+      alert(`Failed to move: ${error}`);
     }
   };
 
@@ -71,6 +89,24 @@ export function TurnControls() {
       await gameStore.performRetreat();
     } catch (error) {
       console.error('Failed to retreat:', error);
+    }
+  };
+
+  const handleEndTurn = async () => {
+    try {
+      await gameStore.performEndTurn();
+    } catch (error) {
+      console.error('Failed to end turn:', error);
+    }
+  };
+
+  const handleContinue = async () => {
+    console.log('[TurnControls] Continue button clicked, current phase:', phase);
+    try {
+      await gameStore.performContinue();
+    } catch (error) {
+      console.error('Failed to continue:', error);
+      alert(`Failed to continue: ${error}`);
     }
   };
 
@@ -160,14 +196,47 @@ export function TurnControls() {
           </button>
         )}
 
-        {/* Continue button for other phases */}
-        {phase === 'manage' && isCurrentPlayer && (
+        {/* End Turn button */}
+        {canEndTurn && (
           <button
-            onClick={() => console.log('Continue from manage phase')}
-            className="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-6 rounded-lg transition-colors"
+            onClick={handleEndTurn}
+            className="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-6 rounded-lg transition-colors"
+            data-testid="btn-end-turn"
+          >
+            ✅ End Turn
+          </button>
+        )}
+
+        {/* End Turn from Capacity phase (after movement/sleep) */}
+        {canEndFromCapacity && (
+          <button
+            onClick={handleEndTurn}
+            className="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-6 rounded-lg transition-colors"
+            data-testid="btn-end-turn-capacity"
+          >
+            ✅ End Turn
+          </button>
+        )}
+
+        {/* Continue button for automatic phases */}
+        {needsContinue && (
+          <button
+            onClick={handleContinue}
+            className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-6 rounded-lg transition-colors"
             data-testid="btn-continue"
           >
-            Continue →
+            ➡️ Continue
+          </button>
+        )}
+
+        {/* End turn button for resolveTile phase */}
+        {needsResolve && (
+          <button
+            onClick={handleEndTurn}
+            className="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-6 rounded-lg transition-colors"
+            data-testid="btn-end-turn-resolve"
+          >
+            ✅ End Turn
           </button>
         )}
 

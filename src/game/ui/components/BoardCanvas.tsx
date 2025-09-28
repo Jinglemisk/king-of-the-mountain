@@ -7,10 +7,10 @@ interface TilePosition {
   y: number;
 }
 
-const TILE_SIZE = 56;
+const TILE_SIZE = 40;
 const HALF_TILE = TILE_SIZE / 2;
-const CANVAS_SIZE = 860;
-const MAP_PADDING = 160;
+const CANVAS_SIZE = 600;
+const MAP_PADDING = 100;
 const FINAL_TILE_ID = 14;
 const POSITION_SCALE = 0.8;
 
@@ -221,10 +221,10 @@ export function BoardCanvas() {
   };
 
   return (
-    <div className="flex-1 overflow-auto bg-gradient-to-br from-surface-base via-surface-sunken to-surface-base py-6">
+    <div className="flex-1 flex items-center justify-center bg-gradient-to-br from-surface-base via-surface-sunken to-surface-base p-4">
       <div
-        className="relative mx-auto"
-        style={{ width: `${CANVAS_SIZE}px`, height: `${CANVAS_SIZE}px` }}
+        className="relative"
+        style={{ width: `${CANVAS_SIZE}px`, height: `${CANVAS_SIZE}px`, maxWidth: '100%', maxHeight: '100%' }}
       >
         <div
           className="pointer-events-none absolute inset-0 rounded-[48px] border border-white/10 bg-[radial-gradient(circle_at_center,_rgba(244,241,222,0.35)_0%,_rgba(134,180,162,0.25)_55%,_rgba(11,17,32,0.8)_100%)] shadow-[0_45px_80px_-45px_rgba(8,47,73,0.7)]"
@@ -329,7 +329,7 @@ export function BoardCanvas() {
               title={`Tile #${tile.id}: ${tile.type}${tile.tier ? ` (tier ${tile.tier})` : ''}`}
             >
               <div className="relative flex h-full w-full items-center justify-center">
-                <div className="text-2xl drop-shadow">{getTileIcon(tile.type)}</div>
+                <div className="text-lg drop-shadow">{getTileIcon(tile.type)}</div>
 
                 {tile.tier && (
                   <div className="absolute top-1 right-1 flex gap-0.5">
@@ -346,12 +346,12 @@ export function BoardCanvas() {
               </div>
 
               {tokens.length > 0 && (
-                <div className="absolute -bottom-2 left-1/2 flex -translate-x-1/2 gap-1">
+                <div className="absolute -bottom-1 left-1/2 flex -translate-x-1/2 gap-0.5">
                   {tokens.map((token) => (
                     <div
                       key={token.uid}
                       className={`
-                        flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-semibold
+                        flex h-5 w-5 items-center justify-center rounded-full text-[9px] font-semibold
                         ${token.isMe
                           ? 'bg-sky-500 text-white ring-2 ring-sky-200/70'
                           : 'bg-slate-800/90 text-white'}
@@ -368,32 +368,32 @@ export function BoardCanvas() {
           );
         })}
 
-        <div className="absolute bottom-8 left-8 rounded-2xl bg-white/80 px-5 py-4 text-xs text-slate-900 shadow-lg">
-          <h3 className="mb-3 font-semibold uppercase tracking-wide">Legend</h3>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="flex items-center gap-2">
-              <span className="h-3 w-3 rounded-full bg-danger-500" />
-              <span>Enemy</span>
+        <div className="absolute bottom-4 left-4 rounded-lg bg-white/80 px-3 py-2 text-xs text-slate-900 shadow-lg">
+          <h3 className="mb-2 font-semibold uppercase tracking-wide text-[10px]">Legend</h3>
+          <div className="grid grid-cols-2 gap-2">
+            <div className="flex items-center gap-1">
+              <span className="h-2 w-2 rounded-full bg-danger-500" />
+              <span className="text-[10px]">Enemy</span>
             </div>
-            <div className="flex items-center gap-2">
-              <span className="h-3 w-3 rounded-full bg-amber-400" />
-              <span>Treasure</span>
+            <div className="flex items-center gap-1">
+              <span className="h-2 w-2 rounded-full bg-amber-400" />
+              <span className="text-[10px]">Treasure</span>
             </div>
-            <div className="flex items-center gap-2">
-              <span className="h-3 w-3 rounded-full bg-violet-500" />
-              <span>Chance</span>
+            <div className="flex items-center gap-1">
+              <span className="h-2 w-2 rounded-full bg-violet-500" />
+              <span className="text-[10px]">Chance</span>
             </div>
-            <div className="flex items-center gap-2">
-              <span className="h-3 w-3 rounded-full bg-emerald-400" />
-              <span>Sanctuary</span>
+            <div className="flex items-center gap-1">
+              <span className="h-2 w-2 rounded-full bg-emerald-400" />
+              <span className="text-[10px]">Sanctuary</span>
             </div>
-            <div className="flex items-center gap-2">
-              <span className="h-3 w-3 rounded-full bg-sky-400" />
-              <span>Start</span>
+            <div className="flex items-center gap-1">
+              <span className="h-2 w-2 rounded-full bg-sky-400" />
+              <span className="text-[10px]">Start</span>
             </div>
-            <div className="flex items-center gap-2">
-              <span className="h-3 w-3 rounded-full bg-yellow-400" />
-              <span>Final</span>
+            <div className="flex items-center gap-1">
+              <span className="h-2 w-2 rounded-full bg-yellow-400" />
+              <span className="text-[10px]">Final</span>
             </div>
           </div>
         </div>

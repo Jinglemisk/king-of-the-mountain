@@ -8,11 +8,10 @@ import {
   subscribeToGameLog,
   subscribeToChat,
   applyGameAction,
-  sendChatMessage,
-  addGameLog
+  sendChatMessage
 } from './gameService';
 import { subscribeToRoom } from './roomService';
-import { getCurrentUser } from './firebase';
+import { useGameStore } from '../ui/stores/gameStore';
 
 export interface SyncCallbacks {
   onRoomUpdate?: (room: RoomDoc | null) => void;
@@ -121,10 +120,15 @@ export class SyncManager {
       throw new Error('No active game');
     }
 
-    const user = getCurrentUser();
-    if (!user) {
-      throw new Error('User not authenticated');
+    // Get uid from gameStore which is the source of truth
+    const myUid = useGameStore.getState().myUid;
+    if (!myUid) {
+      throw new Error('User not authenticated - no uid in gameStore');
     }
+
+    console.log('[SyncManager] executeAction - myUid:', myUid);
+    console.log('[SyncManager] executeAction - currentPlayerUid:', this.currentGameState?.currentPlayerUid);
+    console.log('[SyncManager] executeAction - isMyTurn:', this.isMyTurn());
 
     if (!this.isMyTurn()) {
       throw new Error('Not your turn');
@@ -135,7 +139,7 @@ export class SyncManager {
 
     const action: ClientAction = {
       ts: null as any, // Will be set by Firestore
-      uid: user.uid,
+      uid: myUid,
       type: actionType,
       payload
     };
@@ -149,23 +153,82 @@ export class SyncManager {
         this.currentGameId,
         action,
         (currentState: GameState) => {
-          // Convert game state to engine state
-          const engineState: any = currentState; // TODO: proper conversion
+          // Convert game state to engine state - map currentPlayerUid to currentPlayer
+          const networkState = currentState as any;
+          const engineState: any = {
+            ...currentState,
+            currentPlayer: networkState.currentPlayerUid || currentState.currentPlayer,
+            // Convert turnOrder array to order object
+            order: networkState.turnOrder ? {
+              seats: networkState.turnOrder,
+              currentIdx: networkState.turnOrder.indexOf(networkState.currentPlayerUid || currentState.currentPlayer) || 0
+            } : currentState.order
+          };
+
+          console.log('[SyncManager] State conversion - currentPlayerUid:', (currentState as any).currentPlayerUid);
+          console.log('[SyncManager] State conversion - engineState.currentPlayer:', engineState.currentPlayer);
+          console.log('[SyncManager] State conversion - board exists:', !!engineState.board);
+          console.log('[SyncManager] State conversion - board.graph exists:', !!engineState.board?.graph);
+          console.log('[SyncManager] State conversion - board.graph.nodes exists:', !!engineState.board?.graph?.nodes);
+
+          // Validate board structure
+          if (!engineState.board || !engineState.board.graph) {
+            console.error('[SyncManager] Board structure missing in game state!', {
+              hasBoard: !!engineState.board,
+              boardKeys: engineState.board ? Object.keys(engineState.board) : [],
+              hasGraph: !!engineState.board?.graph
+            });
+            throw new Error('Invalid game state: board not initialized');
+          }
 
           // Create context
           const ctx = {
             now: () => Date.now(),
             rng: {
-              roll: (die: string, seed: string) => {
+              state: { seed: Date.now().toString(), counter: 0 },
+              roll: (die: string) => {
                 const max = die === 'd4' ? 4 : 6;
                 return { value: Math.floor(Math.random() * max) + 1, raw: 0 };
-              }
+              },
+              shuffle: <T>(arr: ReadonlyArray<T>) => [...arr],
+              weightedPick: <T>(items: ReadonlyArray<T>, weights: ReadonlyArray<number>) => ({ index: 0, item: items[0] })
+            },
+            emit: (event: any) => {
+              // Events are handled by the engine internally
+              console.log('[SyncManager] Engine event:', event.type);
             }
           };
 
+          // Ensure the engine action has all required fields
+          const completeEngineAction = {
+            id: `action_${Date.now()}_${Math.random()}`,
+            ts: Date.now(),
+            uid: myUid, // Add the uid from the authenticated user
+            ...engineAction // Allow override of defaults with values from engineAction
+          };
+
+          console.log('[SyncManager] Complete engine action:', completeEngineAction);
+
           // Apply the action using the engine
-          const result = this.engine.applyAction(engineState, engineAction as any, ctx);
-          return result.state as any; // TODO: proper conversion back
+          const result = this.engine.applyAction(engineState, completeEngineAction as any, ctx);
+
+          console.log('[SyncManager] Engine result - currentPlayer:', result.state.currentPlayer);
+
+          // Convert engine state back - map currentPlayer to currentPlayerUid and order to turnOrder
+          const returnState = {
+            ...result.state,
+            currentPlayerUid: result.state.currentPlayer,
+            currentPlayer: undefined, // Remove the engine's currentPlayer field
+            // Convert order object back to turnOrder array
+            turnOrder: result.state.order?.seats,
+            order: undefined // Remove the engine's order field
+          } as any;
+          delete returnState.currentPlayer; // Ensure it's removed
+          delete returnState.order; // Ensure it's removed
+
+          console.log('[SyncManager] Return state - currentPlayerUid:', returnState.currentPlayerUid);
+
+          return returnState;
         }
       );
 
@@ -187,12 +250,13 @@ export class SyncManager {
       throw new Error('No active game');
     }
 
-    const user = getCurrentUser();
-    if (!user) {
-      throw new Error('User not authenticated');
+    // Get uid from gameStore which is the source of truth
+    const myUid = useGameStore.getState().myUid;
+    if (!myUid) {
+      throw new Error('User not authenticated - no uid in gameStore');
     }
 
-    const player = this.currentGameState.players[user.uid];
+    const player = this.currentGameState.players[myUid];
     if (!player) {
       throw new Error('User not in game');
     }
@@ -202,15 +266,22 @@ export class SyncManager {
 
   isMyTurn(): boolean {
     if (!this.currentGameState) {
+      console.log('[SyncManager.isMyTurn] No game state');
       return false;
     }
 
-    const user = getCurrentUser();
-    if (!user) {
+    // Get uid from gameStore which is the source of truth
+    const myUid = useGameStore.getState().myUid;
+    if (!myUid) {
+      console.log('[SyncManager.isMyTurn] No myUid in gameStore');
       return false;
     }
 
-    return this.currentGameState.currentPlayerUid === user.uid;
+    console.log('[SyncManager.isMyTurn] myUid from store:', myUid);
+    console.log('[SyncManager.isMyTurn] currentPlayerUid:', this.currentGameState.currentPlayerUid);
+    const result = this.currentGameState.currentPlayerUid === myUid;
+    console.log('[SyncManager.isMyTurn] Result:', result);
+    return result;
   }
 
   getCurrentPlayer(): string | null {

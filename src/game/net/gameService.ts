@@ -18,6 +18,7 @@ import {
 } from 'firebase/firestore';
 import { getDb, getCurrentUser, isInMockMode } from './firebase';
 import * as mockGameService from './mockGameService';
+import boardDataV1 from '../data/board.v1.json';
 import type {
   GameDoc,
   NetworkPlayerState,
@@ -193,7 +194,8 @@ export async function startGame(roomCode: string): Promise<string> {
 
       board: {
         id: 'board.v1',
-        positions: Object.fromEntries(turnOrder.map(uid => [uid, 0]))
+        graph: boardDataV1 as any, // Include the actual board graph data
+        playerPositions: Object.fromEntries(turnOrder.map(uid => [uid, 0]))
       },
 
       players,
@@ -267,6 +269,11 @@ export async function applyGameAction(
   action: Omit<ClientAction, 'ts'>,
   engineTransform: (state: GameState) => GameState
 ): Promise<void> {
+  // Use mock service in mock mode
+  if (isInMockMode()) {
+    return mockGameService.applyGameAction(gameId, action, engineTransform);
+  }
+
   const db = getDb();
   const user = getCurrentUser();
 

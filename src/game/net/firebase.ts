@@ -54,9 +54,18 @@ export function initializeFirebase(): void {
 
 export async function signInAsAnonymous(): Promise<User> {
   if (isMockMode) {
-    // Return a mock user for local development
+    // Use sessionStorage to maintain consistent user ID per tab
+    let mockUid = sessionStorage.getItem('mockUserId');
+    if (!mockUid) {
+      mockUid = 'local-user-' + Math.random().toString(36).substr(2, 9);
+      sessionStorage.setItem('mockUserId', mockUid);
+      console.log('[Firebase Mock] Created new user ID:', mockUid);
+    } else {
+      console.log('[Firebase Mock] Using existing user ID:', mockUid);
+    }
+
     const mockUser = {
-      uid: 'local-user-' + Math.random().toString(36).substr(2, 9),
+      uid: mockUid,
       isAnonymous: true,
       emailVerified: false,
       metadata: {},

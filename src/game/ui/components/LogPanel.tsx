@@ -12,27 +12,9 @@ export function LogPanel() {
   const [entries, setEntries] = useState<LogEntry[]>([
     {
       id: '1',
-      timestamp: Date.now() - 60000,
+      timestamp: Date.now(),
       type: 'system',
-      message: 'Game started',
-    },
-    {
-      id: '2',
-      timestamp: Date.now() - 50000,
-      type: 'dice',
-      message: 'Player1 rolled 3 on d4',
-    },
-    {
-      id: '3',
-      timestamp: Date.now() - 40000,
-      type: 'move',
-      message: 'Player1 moved to tile #3 (Treasure T1)',
-    },
-    {
-      id: '4',
-      timestamp: Date.now() - 30000,
-      type: 'card',
-      message: 'Player1 drew Dagger (+1 Attack)',
+      message: 'Game started - waiting for player action',
     },
   ]);
 
@@ -75,7 +57,7 @@ export function LogPanel() {
   return (
     <div className="flex flex-col h-full">
       {/* Filter buttons */}
-      <div className="border-b border-gray-200 dark:border-gray-700 p-2">
+      <div className="border-b border-gray-200 dark:border-gray-700 p-1">
         <div className="flex gap-1 flex-wrap">
           <button
             onClick={() => setFilter('all')}
@@ -108,7 +90,7 @@ export function LogPanel() {
       </div>
 
       {/* Log entries */}
-      <div className="flex-1 overflow-y-auto p-3 space-y-1">
+      <div className="flex-1 overflow-y-auto p-2 space-y-0.5">
         {filteredEntries.length === 0 ? (
           <div className="text-center text-gray-500 dark:text-gray-400 text-sm py-8">
             No log entries to display
@@ -143,9 +125,9 @@ export function LogPanel() {
       </div>
 
       {/* Entry count */}
-      <div className="border-t border-gray-200 dark:border-gray-700 p-2">
+      <div className="border-t border-gray-200 dark:border-gray-700 px-2 py-1">
         <div className="text-xs text-gray-500 dark:text-gray-400 text-center">
-          Showing {filteredEntries.length} of {entries.length} entries
+          {filteredEntries.length}/{entries.length} entries
         </div>
       </div>
     </div>

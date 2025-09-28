@@ -35,11 +35,13 @@ import type {
   PickUpDroppedAction,
   ConsumePotionAction,
   PlayHeldEffectAction,
-  RetreatAction
+  RetreatAction,
+  StartCombatAction,
+  RollCombatAction
 } from './types';
 import { InvalidActionError } from './types';
 
-import { loadBoard } from './board';
+import { loadBoard, buildReverseAdjacency } from './board';
 import type { BoardGraphExtended } from './board';
 import { createRNG, createRNGState, generateUID } from '../util/rng';
 import {
@@ -102,6 +104,27 @@ export class GameEngine implements EngineApi {
     D6_MIN: 1,
     D6_MAX: 6
   };
+
+  // Helper to ensure board is properly extended
+  private ensureBoardExtended(state: EngineState): BoardGraphExtended {
+    if (!state.board || !state.board.graph) {
+      throw new Error('Game board not initialized');
+    }
+
+    let board = state.board.graph as BoardGraphExtended;
+
+    // Check if board needs extension
+    if (!board.reverseAdj) {
+      board = {
+        ...state.board.graph,
+        reverseAdj: buildReverseAdjacency(state.board.graph)
+      } as BoardGraphExtended;
+      // Update the state with the extended board
+      state.board.graph = board;
+    }
+
+    return board;
+  }
 
   // Selectors
   readonly selectors: Selectors = {
@@ -194,9 +217,12 @@ export class GameEngine implements EngineApi {
         return handleConsumePotion(state, action as ConsumePotionAction, ctx);
       case 'playHeldEffect':
         return handlePlayHeldEffect(state, action as PlayHeldEffectAction, ctx);
+      case 'startCombat':
+        return this.handleStartCombat(state, action as any, ctx);
+      case 'rollCombat':
+        return this.handleRollCombat(state, action as any, ctx);
       default:
-        // Placeholder for other actions
-        return { state, events: [] };
+        throw new InvalidActionError(`Unknown action type: ${action.type}`, action);
     }
   }
 
@@ -414,7 +440,7 @@ export class GameEngine implements EngineApi {
     }
 
     const player = newState.players[newState.currentPlayer];
-    const board = newState.board.graph as BoardGraphExtended;
+    const board = this.ensureBoardExtended(newState);
     const roll = ctx.rng.roll('d4', action.uid);
 
     events.push({
@@ -548,24 +574,53 @@ export class GameEngine implements EngineApi {
   ): EngineUpdate {
     const newState = { ...state };
 
-    // Clear per-turn effects
-    if (newState.currentPlayer) {
-      const player = newState.players[newState.currentPlayer];
-      player.perTurn = {};
+    // Handle different phases that can call endTurn
+    switch (state.phase) {
+      case 'turnStart':
+        // Progress from turnStart based on conditions
+        const nextPhase = getNextPhase('turnStart', newState);
+        if (nextPhase) {
+          return applyPhaseTransition(newState, 'turnStart', nextPhase, ctx);
+        }
+        throw new InvalidActionError('Cannot determine next phase from turnStart', action);
 
-      // Clear "this turn" active effects
-      if (player.activeEffects) {
-        player.activeEffects = player.activeEffects.filter(e => e.duration !== 'this-turn');
-      }
+      case 'manage':
+        // Skip equipment management, go to preDuel
+        return applyPhaseTransition(newState, 'manage', 'preDuel', ctx);
+
+      case 'preDuel':
+        // Skip duel offers, go to moveOrSleep
+        return applyPhaseTransition(newState, 'preDuel', 'moveOrSleep', ctx);
+
+      case 'resolveTile':
+        // After tile is resolved, go to capacity
+        return applyPhaseTransition(newState, 'resolveTile', 'capacity', ctx);
+
+      case 'capacity':
+        // Enforce capacity before transitioning
+        const capacityUpdate = handleCapacityEnforcement(newState, ctx);
+        newState.tiles = capacityUpdate.state.tiles;
+        newState.players = capacityUpdate.state.players;
+        return applyPhaseTransition(newState, 'capacity', 'endTurn', ctx);
+
+      case 'endTurn':
+        // Clear per-turn effects
+        if (newState.currentPlayer) {
+          const player = newState.players[newState.currentPlayer];
+          player.perTurn = {};
+
+          // Clear "this turn" active effects
+          if (player.activeEffects) {
+            player.activeEffects = player.activeEffects.filter(e => e.duration !== 'this-turn');
+          }
+        }
+
+        // Transition to next player's turn
+        return applyPhaseTransition(newState, 'endTurn', 'turnStart', ctx);
+
+      default:
+        throw new InvalidActionError(`Cannot end turn from phase: ${state.phase}`, action);
     }
-
-    // Enforce capacity before ending turn
-    const capacityUpdate = handleCapacityEnforcement(newState, ctx);
-    newState.tiles = capacityUpdate.state.tiles;
-    newState.players = capacityUpdate.state.players;
-
-    // Transition handles advancing to next player
-    return applyPhaseTransition(newState, 'endTurn', 'turnStart', ctx);
   }
 
   private handleChooseBranch(
@@ -581,7 +636,7 @@ export class GameEngine implements EngineApi {
     }
 
     const player = newState.players[newState.currentPlayer];
-    const board = newState.board.graph as BoardGraphExtended;
+    const board = this.ensureBoardExtended(newState);
 
     // Validate the branch choice
     const currentNode = board.nodes.find(n => n.id === action.from);
@@ -696,5 +751,23 @@ export class GameEngine implements EngineApi {
     }
 
     return { state: newState, events };
+  }
+
+  private handleStartCombat(
+    state: EngineState,
+    action: Action & { enemyIds: string[] },
+    ctx: EngineContext
+  ): EngineUpdate {
+    // Delegate to the combat command handler
+    return startCombatWithEnemies(state, action as any, ctx);
+  }
+
+  private handleRollCombat(
+    state: EngineState,
+    action: Action & { targetEnemyId?: string },
+    ctx: EngineContext
+  ): EngineUpdate {
+    // Use the combat targeting handler
+    return handleCombatTargeting(state, action as any, ctx);
   }
 }

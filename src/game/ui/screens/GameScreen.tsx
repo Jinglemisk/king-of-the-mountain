@@ -14,6 +14,7 @@ import { DrawDialog } from '../dialogs/DrawDialog';
 import { CapacityDialog } from '../dialogs/CapacityDialog';
 import { BranchChoicePrompt } from '../dialogs/BranchChoicePrompt';
 import { subscribeToGame } from '../../net/gameService';
+import { getSyncManager } from '../../net/syncManager';
 
 export function GameScreen() {
   const { gameId } = useParams();
@@ -32,13 +33,20 @@ export function GameScreen() {
   useEffect(() => {
     if (!gameId || !myUid) return;
 
-    // Subscribe to game updates
+    // Initialize syncManager with the game
+    const syncManager = getSyncManager();
+    syncManager.subscribeToGame(gameId);
+
+    // Subscribe to game updates for the UI
     const unsubscribe = subscribeToGame(gameId, (newGameState) => {
       setGameState(newGameState);
       setLoading(false);
     });
 
-    return () => unsubscribe();
+    return () => {
+      unsubscribe();
+      syncManager.unsubscribeFromGame();
+    };
   }, [gameId, myUid, setGameState]);
 
   const myPlayer = getMyPlayer();
@@ -55,19 +63,27 @@ export function GameScreen() {
   }
 
   return (
-    <div className="flex h-screen bg-gray-100 dark:bg-gray-900">
-      {/* Left Side - Board */}
-      <div className="flex-1 flex flex-col">
-        <BoardCanvas />
+    <div className="flex h-screen bg-gray-100 dark:bg-gray-900 overflow-hidden">
+      {/* Left Side - Board and Log */}
+      <div className="flex-1 flex flex-col min-w-0">
+        {/* Board */}
+        <div className="flex-1 min-h-0 overflow-hidden">
+          <BoardCanvas />
+        </div>
+
+        {/* Game Log - Below Board */}
+        <div className="h-32 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 overflow-hidden">
+          <LogPanel />
+        </div>
 
         {/* Bottom Controls */}
-        <div className="bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 p-4">
+        <div className="bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 p-3">
           <TurnControls />
         </div>
       </div>
 
       {/* Right Side Panel */}
-      <div className="w-96 bg-white dark:bg-gray-800 border-l border-gray-200 dark:border-gray-700 flex flex-col">
+      <div className="w-80 bg-white dark:bg-gray-800 border-l border-gray-200 dark:border-gray-700 flex flex-col overflow-hidden">
         {/* Player HUD */}
         <div className="border-b border-gray-200 dark:border-gray-700">
           <PlayerHUD />
@@ -83,9 +99,9 @@ export function GameScreen() {
           <TilePanel />
         </div>
 
-        {/* Chat and Log Tabs */}
+        {/* Chat */}
         <div className="flex-1 flex flex-col min-h-0">
-          <ChatAndLogTabs />
+          <ChatPanel />
         </div>
       </div>
 
@@ -120,37 +136,3 @@ export function GameScreen() {
   );
 }
 
-function ChatAndLogTabs() {
-  const [activeTab, setActiveTab] = useState<'chat' | 'log'>('log');
-
-  return (
-    <div className="flex flex-col h-full">
-      <div className="flex border-b border-gray-200 dark:border-gray-700">
-        <button
-          onClick={() => setActiveTab('chat')}
-          className={`flex-1 px-4 py-2 text-sm font-medium transition-colors ${
-            activeTab === 'chat'
-              ? 'bg-white dark:bg-gray-800 text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-400'
-              : 'bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200'
-          }`}
-        >
-          Chat
-        </button>
-        <button
-          onClick={() => setActiveTab('log')}
-          className={`flex-1 px-4 py-2 text-sm font-medium transition-colors ${
-            activeTab === 'log'
-              ? 'bg-white dark:bg-gray-800 text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-400'
-              : 'bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200'
-          }`}
-        >
-          Action Log
-        </button>
-      </div>
-
-      <div className="flex-1 min-h-0">
-        {activeTab === 'chat' ? <ChatPanel /> : <LogPanel />}
-      </div>
-    </div>
-  );
-}
