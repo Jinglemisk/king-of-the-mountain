@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import React, { useMemo } from 'react';
 import { useGameStore } from '../stores/gameStore';
 import { BOARD } from '../../data/content';
 
@@ -7,16 +7,14 @@ interface TilePosition {
   y: number;
 }
 
-const TILE_SIZE = 72;
+const TILE_SIZE = 56;
 const HALF_TILE = TILE_SIZE / 2;
-const CANVAS_SIZE = 900;
-const MAP_PADDING = 120;
-const FINAL_TILE_ID = 53;
+const CANVAS_SIZE = 860;
+const MAP_PADDING = 160;
+const FINAL_TILE_ID = 14;
+const POSITION_SCALE = 0.8;
 
-const BRANCH_DEFINITIONS = [
-  { startId: 10, endId: 18, nodeIds: [54, 55, 56, 57, 58, 59], arcDirection: -1 },
-  { startId: 36, endId: 46, nodeIds: [60, 61, 62, 63, 64, 65, 66, 67], arcDirection: 1 },
-];
+const BRANCH_DEFINITIONS: { startId: number; endId: number; nodeIds: number[]; arcDirection: number }[] = [];
 
 export function BoardCanvas() {
   const { gameState, myUid, ui, setHoveredTile } = useGameStore();
@@ -34,7 +32,7 @@ export function BoardCanvas() {
       .sort((a, b) => a.id - b.id);
 
     // Plot the main path along a gentle spiral that coils toward the summit.
-    const angleStep = Math.PI / 6;
+    const angleStep = Math.PI / 3.5;
     mainPathTiles.forEach((tile, index) => {
       const progress = mainPathTiles.length > 1 ? index / (mainPathTiles.length - 1) : 0;
       const radius = outerRadius - progress * (outerRadius - innerRadius);
@@ -94,8 +92,22 @@ export function BoardCanvas() {
       placeBranch(startId, endId, nodeIds, arcDirection);
     });
 
+    // Slightly compress the layout toward center so tiles sit closer together.
+    Object.entries(positions).forEach(([idValue, position]) => {
+      const tileId = Number(idValue);
+      if (!position) return;
+
+      const offsetX = position.x + HALF_TILE - mapCenter;
+      const offsetY = position.y + HALF_TILE - mapCenter;
+
+      positions[tileId] = {
+        x: mapCenter + offsetX * POSITION_SCALE - HALF_TILE,
+        y: mapCenter + offsetY * POSITION_SCALE - HALF_TILE,
+      };
+    });
+
     return positions;
-  }, []);
+  }, [innerRadius, mapCenter, outerRadius]);
 
   const connectionPaths = useMemo(() => {
     const segments: { key: string; d: string }[] = [];
@@ -167,17 +179,17 @@ export function BoardCanvas() {
       case 'treasure': return '💰';
       case 'chance': return '🎲';
       case 'sanctuary': return '🛡️';
-      case 'empty': return '';
+      case 'empty': return '·';
       case 'start': return '🏁';
       case 'final': return '👑';
-      default: return '';
+      default: return '·';
     }
   };
 
   const getPlayerTokens = (tileId: number) => {
     if (!gameState) return [];
     return Object.entries(gameState.players)
-      .filter(([_, player]) => player.position === tileId)
+      .filter(([, player]) => player.position === tileId)
       .map(([uid, player]) => ({
         uid,
         nickname: player.nickname || 'Player',
@@ -185,6 +197,19 @@ export function BoardCanvas() {
         hp: player.hp,
         maxHp: player.maxHp,
       }));
+  };
+
+  const renderTierPips = (tier: number) => {
+    const pips: React.ReactElement[] = [];
+    for (let pipIndex = 0; pipIndex < tier; pipIndex += 1) {
+      pips.push(
+        <span
+          key={`tier-pip-${pipIndex}`}
+          className="h-1.5 w-1.5 rounded-full bg-white/75 shadow-[0_0_6px_rgba(255,255,255,0.65)]"
+        />,
+      );
+    }
+    return pips;
   };
 
   const handleTileClick = (tileId: number) => {
@@ -224,7 +249,7 @@ export function BoardCanvas() {
             </radialGradient>
           </defs>
 
-          {Array.from({ length: 6 }).map((_, idx) => {
+          {[...Array(6).keys()].map((idx) => {
             const radius = outerRadius - (idx * (outerRadius - innerRadius)) / 6;
             return (
               <circle
@@ -246,7 +271,7 @@ export function BoardCanvas() {
                 d={d}
                 fill="none"
                 stroke="rgba(11,17,32,0.8)"
-                strokeWidth={12}
+                strokeWidth={9.5}
                 strokeLinecap="round"
                 opacity={0.9}
               />
@@ -254,7 +279,7 @@ export function BoardCanvas() {
                 d={d}
                 fill="none"
                 stroke="url(#pathGradient)"
-                strokeWidth={6}
+                strokeWidth={4.5}
                 strokeLinecap="round"
                 opacity={0.95}
               />
@@ -280,17 +305,16 @@ export function BoardCanvas() {
           const tokens = getPlayerTokens(tile.id);
           const isHovered = ui.hoveredTile === tile.id;
           const isBranchOption = ui.branchOptions?.includes(tile.id);
-          const tileLabel = `${tile.type.charAt(0).toUpperCase()}${tile.type.slice(1)}`;
 
           return (
             <div
               key={tile.id}
               className={`
-                absolute flex flex-col cursor-pointer rounded-2xl border
-                text-white transition-transform duration-200 ease-out
+                absolute flex items-center justify-center cursor-pointer rounded-xl border
+                transition-transform duration-200 ease-out
                 ${getTileClasses(tile.type)}
                 ${isHovered ? 'scale-110 z-20 drop-shadow-2xl' : 'z-10'}
-                ${isBranchOption ? 'ring-4 ring-yellow-200/70 animate-pulse-glow' : ''}
+                ${isBranchOption ? 'ring-3 ring-yellow-200/70 animate-pulse-glow' : ''}
               `}
               style={{
                 left: `${pos.x}px`,
@@ -302,39 +326,32 @@ export function BoardCanvas() {
               onMouseEnter={() => setHoveredTile(tile.id)}
               onMouseLeave={() => setHoveredTile(null)}
               data-testid={`tile-${tile.id}`}
+              title={`Tile #${tile.id}: ${tile.type}${tile.tier ? ` (tier ${tile.tier})` : ''}`}
             >
-              <div className="relative flex h-full w-full flex-1 flex-col items-center justify-center">
-                <div className="absolute -top-2 left-2 rounded-full bg-black/40 px-2 py-0.5 text-[10px] font-semibold tracking-wide text-white/80">
-                  #{tile.id}
-                </div>
-
-                <div className="text-3xl drop-shadow">{getTileIcon(tile.type)}</div>
-
-                <div className="absolute bottom-1 left-1 right-1 text-center text-[10px] font-semibold uppercase tracking-wide text-black/70">
-                  {tileLabel}
-                </div>
+              <div className="relative flex h-full w-full items-center justify-center">
+                <div className="text-2xl drop-shadow">{getTileIcon(tile.type)}</div>
 
                 {tile.tier && (
-                  <div className="absolute top-1 right-1 rounded-full bg-black/40 px-1.5 py-0.5 text-[10px] font-semibold text-white/80">
-                    T{tile.tier}
+                  <div className="absolute top-1 right-1 flex gap-0.5">
+                    {renderTierPips(tile.tier)}
                   </div>
                 )}
 
                 {gameState?.tileState?.traps?.[tile.id] && (
-                  <div className="absolute top-8 right-1 text-xs">🪤</div>
+                  <div className="absolute top-1 left-1 text-xs">🪤</div>
                 )}
                 {gameState?.tileState?.ambushes?.[tile.id] && (
-                  <div className="absolute top-8 right-1 text-xs">👤</div>
+                  <div className="absolute top-5 left-1 text-xs">👤</div>
                 )}
               </div>
 
               {tokens.length > 0 && (
-                <div className="absolute -bottom-3 left-1/2 flex -translate-x-1/2 gap-1">
+                <div className="absolute -bottom-2 left-1/2 flex -translate-x-1/2 gap-1">
                   {tokens.map((token) => (
                     <div
                       key={token.uid}
                       className={`
-                        flex h-7 w-7 items-center justify-center rounded-full text-xs font-extrabold
+                        flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-semibold
                         ${token.isMe
                           ? 'bg-sky-500 text-white ring-2 ring-sky-200/70'
                           : 'bg-slate-800/90 text-white'}

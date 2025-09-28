@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { getActionHandlers } from '../../net/actionHandlers';
 
 // Simplified types for UI store to avoid circular dependencies
 interface PlayerState {
@@ -80,6 +81,13 @@ interface GameStore {
   isMyTurn: () => boolean;
   getCurrentPhase: () => string | null;
   getVisiblePlayers: () => PlayerState[];
+
+  // Game actions
+  performSleep: () => Promise<void>;
+  performMove: () => Promise<void>;
+  performBranchChoice: (targetNodeId: number) => Promise<void>;
+  performDuelOffer: (targetUid: string) => Promise<void>;
+  performRetreat: () => Promise<void>;
 }
 
 export const useGameStore = create<GameStore>((set, get) => ({
@@ -163,5 +171,51 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const state = get();
     if (!state.gameState) return [];
     return Object.values(state.gameState.players);
+  },
+
+  // Game actions
+  performSleep: async () => {
+    const handlers = getActionHandlers();
+    const result = await handlers.chooseSleep();
+    if (!result.success) {
+      console.error('Failed to sleep:', result.error);
+      throw new Error(result.error);
+    }
+  },
+
+  performMove: async () => {
+    const handlers = getActionHandlers();
+    const result = await handlers.rollMovement();
+    if (!result.success) {
+      console.error('Failed to roll movement:', result.error);
+      throw new Error(result.error);
+    }
+  },
+
+  performBranchChoice: async (targetNodeId: number) => {
+    const handlers = getActionHandlers();
+    const result = await handlers.chooseBranch(targetNodeId);
+    if (!result.success) {
+      console.error('Failed to choose branch:', result.error);
+      throw new Error(result.error);
+    }
+  },
+
+  performDuelOffer: async (targetUid: string) => {
+    const handlers = getActionHandlers();
+    const result = await handlers.offerDuel(targetUid);
+    if (!result.success) {
+      console.error('Failed to offer duel:', result.error);
+      throw new Error(result.error);
+    }
+  },
+
+  performRetreat: async () => {
+    const handlers = getActionHandlers();
+    const result = await handlers.retreat();
+    if (!result.success) {
+      console.error('Failed to retreat:', result.error);
+      throw new Error(result.error);
+    }
   },
 }));

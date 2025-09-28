@@ -7,7 +7,7 @@ export type RoomId = string;
 export type GameId = string;
 
 export type InstanceId = string; // e.g., itm_..., eff_..., enemyInst_...
-export type NodeId = number; // Board node id (0..67 for board.v1)
+export type NodeId = number; // Board node id (0..14 for board.v1)
 
 export type DieType = 'd4' | 'd6';
 

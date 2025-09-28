@@ -171,8 +171,8 @@ export function InventoryPanel() {
         {/* Wearable */}
         <div>
           <div className="text-xs text-gray-500 mb-1">Wearable</div>
-          {myPlayer.equipped?.wearable ? (
-            <ItemCard itemId={myPlayer.equipped.wearable} slot="wearable" />
+          {myPlayer.inventory?.equipped?.wearable ? (
+            <ItemCard itemId={myPlayer.inventory.equipped.wearable} slot="wearable" />
           ) : (
             <EmptySlot label="Empty (Armor/Cloak)" type="wearable" />
           )}
@@ -182,15 +182,15 @@ export function InventoryPanel() {
         <div>
           <div className="text-xs text-gray-500 mb-1">Holdable (2 slots)</div>
           <div className="grid grid-cols-2 gap-2">
-            {myPlayer.equipped?.holdable1 ? (
-              <ItemCard itemId={myPlayer.equipped.holdable1} slot="holdable1" />
+            {myPlayer.inventory?.equipped?.holdableA ? (
+              <ItemCard itemId={myPlayer.inventory.equipped.holdableA} slot="holdableA" />
             ) : (
-              <EmptySlot label="Empty" type="holdable-1" />
+              <EmptySlot label="Empty" type="holdable-A" />
             )}
-            {myPlayer.equipped?.holdable2 ? (
-              <ItemCard itemId={myPlayer.equipped.holdable2} slot="holdable2" />
+            {myPlayer.inventory?.equipped?.holdableB ? (
+              <ItemCard itemId={myPlayer.inventory.equipped.holdableB} slot="holdableB" />
             ) : (
-              <EmptySlot label="Empty" type="holdable-2" />
+              <EmptySlot label="Empty" type="holdable-B" />
             )}
           </div>
         </div>

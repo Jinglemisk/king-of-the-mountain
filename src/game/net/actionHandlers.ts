@@ -14,6 +14,15 @@ export class ActionHandlers {
   private syncManager = getSyncManager();
 
   async chooseMoveOrSleep(choice: 'move' | 'sleep'): Promise<ActionResult> {
+    // This method is kept for backward compatibility
+    if (choice === 'sleep') {
+      return this.chooseSleep();
+    } else {
+      return this.rollMovement();
+    }
+  }
+
+  async chooseSleep(): Promise<ActionResult> {
     try {
       const gameState = this.syncManager.getGameState();
       if (!gameState) {
@@ -21,17 +30,16 @@ export class ActionHandlers {
       }
 
       const action: GameAction = {
-        type: 'CHOOSE_MOVE_OR_SLEEP',
-        payload: { choice }
+        type: 'chooseSleep',
+        payload: {}
       };
 
-      await this.syncManager.executeAction('ChooseMoveOrSleep', { choice }, action);
+      await this.syncManager.executeAction('chooseSleep', {}, action);
 
       // Log the action
       const gameId = this.syncManager.getGameId();
       if (gameId) {
-        const message = choice === 'move' ? 'chose to move' : 'chose to sleep';
-        await addGameLog(gameId, 'MoveChoice', message, { choice });
+        await addGameLog(gameId, 'Sleep', 'chose to sleep and heal', {});
       }
 
       return { success: true };
@@ -48,11 +56,17 @@ export class ActionHandlers {
       }
 
       const action: GameAction = {
-        type: 'ROLL_MOVEMENT',
+        type: 'rollMovement',
         payload: {}
       };
 
-      await this.syncManager.executeAction('RollMovement', {}, action);
+      await this.syncManager.executeAction('rollMovement', {}, action);
+
+      // Log the action
+      const gameId = this.syncManager.getGameId();
+      if (gameId) {
+        await addGameLog(gameId, 'Movement', 'rolled dice for movement', {});
+      }
 
       return { success: true };
     } catch (error) {

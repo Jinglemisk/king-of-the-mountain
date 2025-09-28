@@ -149,8 +149,23 @@ export class SyncManager {
         this.currentGameId,
         action,
         (currentState: GameState) => {
+          // Convert game state to engine state
+          const engineState: any = currentState; // TODO: proper conversion
+
+          // Create context
+          const ctx = {
+            now: () => Date.now(),
+            rng: {
+              roll: (die: string, seed: string) => {
+                const max = die === 'd4' ? 4 : 6;
+                return { value: Math.floor(Math.random() * max) + 1, raw: 0 };
+              }
+            }
+          };
+
           // Apply the action using the engine
-          return this.engine.processAction(currentState, engineAction);
+          const result = this.engine.applyAction(engineState, engineAction as any, ctx);
+          return result.state as any; // TODO: proper conversion back
         }
       );
 

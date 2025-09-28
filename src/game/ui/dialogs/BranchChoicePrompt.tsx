@@ -7,13 +7,16 @@ interface BranchChoicePromptProps {
 }
 
 export function BranchChoicePrompt({ fromTileId, options }: BranchChoicePromptProps) {
-  const { setBranchOptions, setActiveDialog } = useGameStore();
+  const { setBranchOptions, setActiveDialog, performBranchChoice } = useGameStore();
 
-  const handleChoice = (tileId: number) => {
-    console.log(`Choose branch from ${fromTileId} to ${tileId}`);
-    // Dispatch branch choice action
-    setBranchOptions(null);
-    setActiveDialog(null);
+  const handleChoice = async (tileId: number) => {
+    try {
+      await performBranchChoice(tileId);
+      setBranchOptions(null);
+      setActiveDialog(null);
+    } catch (error) {
+      console.error('Failed to choose branch:', error);
+    }
   };
 
   const getTileInfo = (tileId: number) => {

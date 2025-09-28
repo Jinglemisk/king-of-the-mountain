@@ -43,7 +43,7 @@ export interface RoomDoc {
 }
 
 export type CardId = string; // e.g., "item.dagger.v1"
-export type NodeId = number; // board node id (0-67)
+export type NodeId = number; // board node id (0-14)
 export type PlayerId = string; // Firebase auth uid
 export type InstanceId = string; // unique instance identifier
 

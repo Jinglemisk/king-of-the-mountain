@@ -4,6 +4,7 @@ import { DiceRoll } from './DiceRoll';
 import { BOARD } from '../../data/content';
 
 export function TurnControls() {
+  const gameStore = useGameStore();
   const {
     gameState,
     getMyPlayer,
@@ -13,7 +14,7 @@ export function TurnControls() {
     setDiceRolling,
     setLastDiceResult,
     setActiveDialog,
-  } = useGameStore();
+  } = gameStore;
 
   const [showDuelMenu, setShowDuelMenu] = useState(false);
 
@@ -35,34 +36,42 @@ export function TurnControls() {
   const canMove = phase === 'moveOrSleep' && isCurrentPlayer;
   const canRetreat = (phase === 'combat' || phase === 'duel') && isCurrentPlayer;
 
-  const handleSleep = () => {
-    console.log('Sleep action');
-    // Dispatch sleep action
+  const handleSleep = async () => {
+    try {
+      await gameStore.performSleep();
+    } catch (error) {
+      console.error('Failed to sleep:', error);
+    }
   };
 
   const handleMove = async () => {
-    setDiceRolling(true);
-
-    // Simulate dice roll
-    setTimeout(() => {
-      const result = Math.floor(Math.random() * 4) + 1;
-      setLastDiceResult({ type: 'd4', value: result });
+    try {
+      setDiceRolling(true);
+      // The actual dice roll will be handled by the server
+      await gameStore.performMove();
+      // Server will handle dice result and update game state
       setDiceRolling(false);
-
-      console.log('Move action, rolled:', result);
-      // Dispatch move action with result
-    }, 1000);
+    } catch (error) {
+      console.error('Failed to move:', error);
+      setDiceRolling(false);
+    }
   };
 
-  const handleOfferDuel = (targetUid: string) => {
-    console.log('Offer duel to:', targetUid);
-    setShowDuelMenu(false);
-    // Dispatch duel offer action
+  const handleOfferDuel = async (targetUid: string) => {
+    try {
+      setShowDuelMenu(false);
+      await gameStore.performDuelOffer(targetUid);
+    } catch (error) {
+      console.error('Failed to offer duel:', error);
+    }
   };
 
-  const handleRetreat = () => {
-    console.log('Retreat action');
-    // Dispatch retreat action
+  const handleRetreat = async () => {
+    try {
+      await gameStore.performRetreat();
+    } catch (error) {
+      console.error('Failed to retreat:', error);
+    }
   };
 
   if (!isCurrentPlayer) {
