@@ -51,6 +51,15 @@ interface UIState {
   interruptContext: any | null;
 }
 
+// Log entry interface matching LogPanel requirements
+interface LogEntry {
+  id: string;
+  timestamp: number;
+  type: 'move' | 'combat' | 'item' | 'dice' | 'card' | 'system';
+  message: string;
+  details?: any;
+}
+
 interface GameStore {
   // Game state from engine
   gameState: GameState | null;
@@ -59,6 +68,9 @@ interface GameStore {
 
   // UI state
   ui: UIState;
+
+  // Logs state
+  logs: LogEntry[];
 
   // Actions
   setGameState: (state: GameState) => void;
@@ -75,6 +87,14 @@ interface GameStore {
   setDiceRolling: (rolling: boolean) => void;
   setLastDiceResult: (result: UIState['lastDiceResult']) => void;
   setActiveInterrupt: (interrupt: UIState['activeInterrupt'], context?: any) => void;
+
+  // Log actions
+  setLogs: (logs: LogEntry[]) => void;
+  addLogEntry: (entry: Omit<LogEntry, 'id' | 'timestamp'>) => void;
+
+  // Card dialog actions
+  showCardDialog: (type: 'treasure' | 'chance', card: any) => void;
+  hideCardDialog: () => void;
 
   // Computed getters
   getMyPlayer: () => PlayerState | null;
@@ -110,6 +130,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
     activeInterrupt: null,
     interruptContext: null,
   },
+
+  logs: [],
 
   // Actions
   setGameState: (state) => set({ gameState: state }),
@@ -151,6 +173,26 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
   setActiveInterrupt: (interrupt, context) => set((state) => ({
     ui: { ...state.ui, activeInterrupt: interrupt, interruptContext: context }
+  })),
+
+  // Log actions
+  setLogs: (logs) => set({ logs }),
+
+  addLogEntry: (entry) => set((state) => ({
+    logs: [...state.logs, {
+      id: `log_${Date.now()}_${Math.random()}`,
+      timestamp: Date.now(),
+      ...entry
+    }]
+  })),
+
+  // Card dialog actions
+  showCardDialog: (type, card) => set((state) => ({
+    ui: { ...state.ui, activeDialog: type, pendingCard: card }
+  })),
+
+  hideCardDialog: () => set((state) => ({
+    ui: { ...state.ui, activeDialog: null, pendingCard: null }
   })),
 
   // Computed getters

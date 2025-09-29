@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import { useGameStore } from '../stores/gameStore';
 
 interface LogEntry {
   id: string;
@@ -9,14 +10,8 @@ interface LogEntry {
 }
 
 export function LogPanel() {
-  const [entries, setEntries] = useState<LogEntry[]>([
-    {
-      id: '1',
-      timestamp: Date.now(),
-      type: 'system',
-      message: 'Game started - waiting for player action',
-    },
-  ]);
+  // Get logs from the game store instead of hardcoded
+  const logs = useGameStore(state => state.logs);
 
   const [filter, setFilter] = useState<string>('all');
   const logEndRef = useRef<HTMLDivElement>(null);
@@ -24,11 +19,11 @@ export function LogPanel() {
   // Auto-scroll to bottom when new entries arrive
   useEffect(() => {
     logEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [entries]);
+  }, [logs]);
 
   const filteredEntries = filter === 'all'
-    ? entries
-    : entries.filter(e => e.type === filter);
+    ? logs
+    : logs.filter(e => e.type === filter);
 
   const getEntryIcon = (type: string) => {
     switch (type) {
@@ -127,7 +122,7 @@ export function LogPanel() {
       {/* Entry count */}
       <div className="border-t border-gray-200 dark:border-gray-700 px-2 py-1">
         <div className="text-xs text-gray-500 dark:text-gray-400 text-center">
-          {filteredEntries.length}/{entries.length} entries
+          {filteredEntries.length}/{logs.length} entries
         </div>
       </div>
     </div>
