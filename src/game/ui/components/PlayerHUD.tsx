@@ -1,9 +1,12 @@
 import { useGameStore } from '../stores/gameStore';
 import { CLASSES } from '../../data/content';
+import { getPhaseInfo } from '../utils/phaseDescriptions';
 
 export function PlayerHUD() {
   const { getMyPlayer, isMyTurn, getCurrentPhase, gameState } = useGameStore();
   const myPlayer = getMyPlayer();
+  const currentPhase = getCurrentPhase();
+  const phaseInfo = currentPhase ? getPhaseInfo(currentPhase) : null;
 
   if (!myPlayer) {
     return (
@@ -20,9 +23,12 @@ export function PlayerHUD() {
   return (
     <div className="p-4 space-y-4">
       {/* Turn Indicator */}
-      {isMyTurn() && (
+      {isMyTurn() && phaseInfo && (
         <div className="bg-blue-100 dark:bg-blue-900/30 border border-blue-500 rounded-lg px-3 py-2 text-sm text-blue-700 dark:text-blue-300 animate-pulse">
-          🎯 It's your turn! ({getCurrentPhase()})
+          <div className="flex items-center gap-2">
+            <span className="text-lg">{phaseInfo.icon}</span>
+            <span>It's your turn! - {phaseInfo.displayName}</span>
+          </div>
         </div>
       )}
 

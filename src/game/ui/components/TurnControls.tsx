@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useGameStore } from '../stores/gameStore';
 import { DiceRoll } from './DiceRoll';
 import { BOARD } from '../../data/content';
+import { getPhaseInfo, getPhaseProgress } from '../utils/phaseDescriptions';
 
 export function TurnControls() {
   const gameStore = useGameStore();
@@ -120,11 +121,41 @@ export function TurnControls() {
     );
   }
 
+  const phaseInfo = getPhaseInfo(phase);
+  const phaseProgress = getPhaseProgress(phase);
+
   return (
     <div className="space-y-3">
-      {/* Phase indicator */}
-      <div className="text-sm text-gray-600 dark:text-gray-400">
-        Current Phase: <span className="font-semibold">{phase}</span>
+      {/* Enhanced phase indicator */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg p-3 shadow-sm border border-gray-200 dark:border-gray-700">
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-2">
+            <span className="text-2xl">{phaseInfo.icon}</span>
+            <div>
+              <div className="font-semibold text-gray-900 dark:text-gray-100">
+                {phaseInfo.displayName}
+              </div>
+              <div className="text-xs text-gray-500 dark:text-gray-400">
+                {phaseInfo.description}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Progress bar */}
+        <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1.5 mb-2">
+          <div
+            className="bg-blue-500 h-1.5 rounded-full transition-all duration-500"
+            style={{ width: `${phaseProgress}%` }}
+          />
+        </div>
+
+        {/* Action prompt */}
+        {phaseInfo.actionPrompt && (
+          <div className="text-sm text-blue-600 dark:text-blue-400 font-medium">
+            {phaseInfo.actionPrompt}
+          </div>
+        )}
       </div>
 
       {/* Main action buttons */}
