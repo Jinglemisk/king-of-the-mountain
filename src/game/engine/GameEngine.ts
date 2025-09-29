@@ -90,6 +90,7 @@ import {
   getEnemyDeck,
   createItemInstance
 } from '../data/content';
+import { resolveTileEffect } from './tileResolver';
 
 export class GameEngine implements EngineApi {
   // Invariants
@@ -383,36 +384,45 @@ export class GameEngine implements EngineApi {
     const rng = ctx.rng;
 
     // Load and shuffle treasure decks
-    newState.decks.treasureT1 = {
-      drawPile: rng.shuffle(getTreasureDeck('T1')),
+    if (!newState.decks.treasure) {
+      newState.decks.treasure = {};
+    }
+    newState.decks.treasure.t1 = {
+      drawPile: rng.shuffle(getTreasureDeck(1)),
       discardPile: []
     };
-    newState.decks.treasureT2 = {
-      drawPile: rng.shuffle(getTreasureDeck('T2')),
+    newState.decks.treasure.t2 = {
+      drawPile: rng.shuffle(getTreasureDeck(2)),
       discardPile: []
     };
-    newState.decks.treasureT3 = {
-      drawPile: rng.shuffle(getTreasureDeck('T3')),
+    newState.decks.treasure.t3 = {
+      drawPile: rng.shuffle(getTreasureDeck(3)),
       discardPile: []
     };
 
     // Load and shuffle chance deck
-    newState.decks.chance = {
+    if (!newState.decks.chance) {
+      newState.decks.chance = {};
+    }
+    newState.decks.chance.main = {
       drawPile: rng.shuffle(getChanceDeck()),
       discardPile: []
     };
 
     // Load enemy decks (for spawning)
-    newState.decks.enemyT1 = {
-      drawPile: rng.shuffle(getEnemyDeck('T1')),
+    if (!newState.decks.enemies) {
+      newState.decks.enemies = {};
+    }
+    newState.decks.enemies.t1 = {
+      drawPile: rng.shuffle(getEnemyDeck(1)),
       discardPile: []
     };
-    newState.decks.enemyT2 = {
-      drawPile: rng.shuffle(getEnemyDeck('T2')),
+    newState.decks.enemies.t2 = {
+      drawPile: rng.shuffle(getEnemyDeck(2)),
       discardPile: []
     };
-    newState.decks.enemyT3 = {
-      drawPile: rng.shuffle(getEnemyDeck('T3')),
+    newState.decks.enemies.t3 = {
+      drawPile: rng.shuffle(getEnemyDeck(3)),
       discardPile: []
     };
 
@@ -572,7 +582,7 @@ export class GameEngine implements EngineApi {
     action: Action,
     ctx: EngineContext
   ): EngineUpdate {
-    const newState = { ...state };
+    let newState = { ...state };
 
     // Handle different phases that can call endTurn
     switch (state.phase) {
@@ -593,7 +603,38 @@ export class GameEngine implements EngineApi {
         return applyPhaseTransition(newState, 'preDuel', 'moveOrSleep', ctx);
 
       case 'resolveTile':
-        // After tile is resolved, go to capacity
+        // Resolve the tile the player landed on
+        if (newState.currentPlayer) {
+          const player = newState.players[newState.currentPlayer];
+          const tileResult = resolveTileEffect(
+            newState,
+            newState.currentPlayer,
+            player.position,
+            ctx
+          );
+
+          // Update state with tile resolution results
+          newState = tileResult.state;
+
+          // Check if we should start combat
+          if (tileResult.shouldStartCombat && tileResult.drawnEnemies) {
+            // Transition to combat phase with tile events
+            const combatTransition = applyPhaseTransition(newState, 'resolveTile', 'combat', ctx);
+            return {
+              state: combatTransition.state,
+              events: [...tileResult.events, ...combatTransition.events]
+            };
+          }
+
+          // Otherwise go to capacity phase with tile events
+          const capacityTransition = applyPhaseTransition(newState, 'resolveTile', 'capacity', ctx);
+          return {
+            state: capacityTransition.state,
+            events: [...tileResult.events, ...capacityTransition.events]
+          };
+        }
+
+        // Fallback if no current player
         return applyPhaseTransition(newState, 'resolveTile', 'capacity', ctx);
 
       case 'capacity':

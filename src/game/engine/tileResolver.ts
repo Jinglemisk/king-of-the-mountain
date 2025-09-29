@@ -5,9 +5,7 @@ import type {
   NodeId,
   PlayerId,
   ItemInstance,
-  EnemyInstance,
-  ChanceCardDef,
-  TileType
+  EnemyInstance
 } from '../types';
 import type { EngineState, DomainEvent, EngineContext } from './types';
 import type { BoardGraphExtended } from './board';
@@ -25,13 +23,20 @@ import {
 } from '../data/content';
 import { generateUID } from '../util/rng';
 
+/**
+ * Deep copy utility for ensuring state immutability
+ */
+function deepCopyState(state: EngineState): EngineState {
+  return JSON.parse(JSON.stringify(state));
+}
+
 export interface TileResolutionResult {
   state: EngineState;
   events: DomainEvent[];
   shouldStartCombat?: boolean;
   drawnEnemies?: EnemyInstance[];
   drawnItems?: ItemInstance[];
-  drawnChance?: ChanceCardDef;
+  drawnChance?: any;
 }
 
 /**
@@ -44,7 +49,8 @@ export function resolveTileEffect(
   ctx: EngineContext
 ): TileResolutionResult {
   const events: DomainEvent[] = [];
-  let newState = { ...state };
+  // Deep copy to avoid mutations
+  let newState = deepCopyState(state);
 
   const board = state.board.graph as BoardGraphExtended;
   const tile = board.nodes.find(n => n.id === tileId);
@@ -62,7 +68,7 @@ export function resolveTileEffect(
   events.push({
     id: generateUID(),
     ts: ctx.now(),
-    type: 'TileResolved',
+    type: 'TileEntered',
     actor: playerId,
     payload: {
       tileId,
@@ -119,16 +125,21 @@ function resolveEnemyTile(
   // Draw enemy cards
   const drawResult = drawFromDeck(enemyDeck, drawCount, ctx.rng);
 
+  // Deep copy state to avoid mutations
+  const newState = deepCopyState(state);
+  if (!newState.decks) newState.decks = {} as any;
+  if (!newState.decks.enemies) newState.decks.enemies = {} as any;
+
   // Update the deck state
   switch (tier) {
     case 1:
-      state.decks.enemies.t1 = drawResult.deck;
+      newState.decks.enemies.t1 = drawResult.deck;
       break;
     case 2:
-      state.decks.enemies.t2 = drawResult.deck;
+      newState.decks.enemies.t2 = drawResult.deck;
       break;
     case 3:
-      state.decks.enemies.t3 = drawResult.deck;
+      newState.decks.enemies.t3 = drawResult.deck;
       break;
   }
 
@@ -139,31 +150,34 @@ function resolveEnemyTile(
 
   // Place enemies on the tile
   const tileKey = tile.id.toString();
-  if (!state.tileState[tileKey]) {
-    state.tileState[tileKey] = {};
+  if (!newState.tileState) newState.tileState = {};
+  if (!newState.tileState[tileKey]) {
+    newState.tileState[tileKey] = {};
   }
-  state.tileState[tileKey].enemies = enemies;
+  newState.tileState[tileKey].enemies = enemies;
 
   // Log enemy spawn
-  events.push({
-    id: generateUID(),
-    ts: ctx.now(),
-    type: 'EnemiesSpawned',
-    actor: player.uid,
-    payload: {
-      tileId: tile.id,
-      enemies: enemies.map(e => ({
-        id: e.instanceId,
-        defId: e.defId,
-        hp: e.currentHp
-      })),
-      count: enemies.length,
-      tier
-    }
-  });
+  // Log each enemy spawn
+  for (const enemy of enemies) {
+    events.push({
+      id: generateUID(),
+      ts: ctx.now(),
+      type: 'EnemySpawned',
+      actor: player.uid,
+      payload: {
+        tileId: tile.id,
+        enemy: {
+          id: enemy.instanceId,
+          defId: enemy.defId,
+          hp: enemy.currentHp
+        },
+        tier
+      }
+    });
+  }
 
   return {
-    state,
+    state: newState,
     events,
     shouldStartCombat: true,
     drawnEnemies: enemies
@@ -192,23 +206,32 @@ function resolveTreasureTile(
     events.push({
       id: generateUID(),
       ts: ctx.now(),
-      type: 'TreasureEmpty',
+      type: 'DeckShuffled',
       actor: player.uid,
-      payload: { tileId: tile.id, tier }
+      payload: {
+        deckType: 'treasure',
+        tier,
+        message: 'Treasure deck empty'
+      }
     });
     return { state, events };
   }
 
+  // Deep copy state to avoid mutations
+  const newState = deepCopyState(state);
+  if (!newState.decks) newState.decks = {} as any;
+  if (!newState.decks.treasure) newState.decks.treasure = {} as any;
+
   // Update the deck state
   switch (tier) {
     case 1:
-      state.decks.treasure.t1 = drawResult.deck;
+      newState.decks.treasure.t1 = drawResult.deck;
       break;
     case 2:
-      state.decks.treasure.t2 = drawResult.deck;
+      newState.decks.treasure.t2 = drawResult.deck;
       break;
     case 3:
-      state.decks.treasure.t3 = drawResult.deck;
+      newState.decks.treasure.t3 = drawResult.deck;
       break;
   }
 
@@ -216,38 +239,53 @@ function resolveTreasureTile(
   const itemId = drawResult.drawn[0];
   const itemInstance = createItemInstance(itemId);
 
+  // Get the player from the new state
+  const newPlayer = newState.players[player.uid];
+
   // Initialize inventory if needed with correct structure
-  if (!player.inventory) {
-    player.inventory = {
+  if (!newPlayer.inventory) {
+    newPlayer.inventory = {
       bandolier: [],
       backpack: []
     };
   }
-  if (!player.equipped) {
-    player.equipped = {
+  if (!newPlayer.equipped) {
+    newPlayer.equipped = {
       holdables: []
     };
   }
 
   // Add to player's backpack (will need capacity check later)
-  player.inventory.backpack.push(itemInstance);
+  newPlayer.inventory.backpack.push(itemInstance);
 
   // Log treasure gain
+  // Log treasure drawn
   events.push({
     id: generateUID(),
     ts: ctx.now(),
-    type: 'TreasureGained',
+    type: 'TreasureDrawn',
     actor: player.uid,
     payload: {
       tileId: tile.id,
-      itemId: itemInstance.defId,
-      instanceId: itemInstance.instanceId,
       tier
     }
   });
 
+  // Log item gained
+  events.push({
+    id: generateUID(),
+    ts: ctx.now(),
+    type: 'ItemGained',
+    actor: player.uid,
+    payload: {
+      itemId: itemInstance.defId,
+      instanceId: itemInstance.instanceId,
+      location: 'backpack'
+    }
+  });
+
   return {
-    state,
+    state: newState,
     events,
     drawnItems: [itemInstance]
   };
@@ -274,19 +312,27 @@ function resolveChanceTile(
     events.push({
       id: generateUID(),
       ts: ctx.now(),
-      type: 'ChanceEmpty',
+      type: 'DeckShuffled',
       actor: player.uid,
-      payload: { tileId: tile.id }
+      payload: {
+        deckType: 'chance',
+        message: 'Chance deck empty'
+      }
     });
     return { state, events };
   }
 
+  // Deep copy state to avoid mutations
+  const newState = deepCopyState(state);
+  if (!newState.decks) newState.decks = {} as any;
+  if (!newState.decks.chance) newState.decks.chance = {} as any;
+
   // Update the deck state
-  state.decks.chance.main = drawResult.deck;
+  newState.decks.chance.main = drawResult.deck;
 
   // Get the chance card definition
   const chanceCardId = drawResult.drawn[0];
-  const chanceCard = CHANCE_CARDS.find(c => c.id === chanceCardId);
+  const chanceCard = CHANCE_CARDS[chanceCardId];
 
   if (!chanceCard) {
     console.error(`Chance card ${chanceCardId} not found`);
@@ -297,57 +343,27 @@ function resolveChanceTile(
   events.push({
     id: generateUID(),
     ts: ctx.now(),
-    type: 'ChanceDrawn',
+    type: 'TileEntered',
     actor: player.uid,
     payload: {
       tileId: tile.id,
-      cardId: chanceCardId,
-      cardName: chanceCard.name,
-      kind: chanceCard.kind
+      chanceCard: {
+        cardId: chanceCardId,
+        cardName: chanceCard.name,
+        rulesText: chanceCard.rulesText
+      }
     }
   });
 
-  // Handle immediate vs keep cards
-  if (chanceCard.kind === 'immediate') {
-    // Resolve immediately (will implement specific effects later)
-    events.push({
-      id: generateUID(),
-      ts: ctx.now(),
-      type: 'ChanceResolved',
-      actor: player.uid,
-      payload: {
-        cardId: chanceCardId,
-        immediate: true
-      }
-    });
-
-    // Add to discard pile
-    state.decks.chance.main.discardPile.push(chanceCardId);
-  } else {
-    // Keep card - add to player's held effects
-    if (!player.heldEffects) {
-      player.heldEffects = [];
-    }
-    player.heldEffects.push({
-      instanceId: generateUID(),
-      defId: chanceCardId,
-      revealed: false
-    });
-
-    events.push({
-      id: generateUID(),
-      ts: ctx.now(),
-      type: 'ChanceKept',
-      actor: player.uid,
-      payload: {
-        cardId: chanceCardId,
-        cardName: chanceCard.name
-      }
-    });
+  // For now, all chance cards are immediate effects
+  // Add to discard pile after resolution
+  if (!newState.decks.chance.main.discardPile) {
+    newState.decks.chance.main.discardPile = [];
   }
+  newState.decks.chance.main.discardPile.push(chanceCardId);
 
   return {
-    state,
+    state: newState,
     events,
     drawnChance: chanceCard
   };
@@ -361,16 +377,40 @@ function resolveSanctuaryTile(
   events: DomainEvent[]
 ): TileResolutionResult {
   // Sanctuary provides safety - log it
+  // Deep copy state to avoid mutations
+  const newState = deepCopyState(state);
+  const newPlayer = newState.players[player.uid];
+
+  // Heal 1 HP at sanctuary
+  const oldHp = newPlayer.hp;
+  newPlayer.hp = Math.min(newPlayer.hp + 1, newPlayer.maxHp);
+
+  if (newPlayer.hp > oldHp) {
+    events.push({
+      id: generateUID(),
+      ts: ctx.now(),
+      type: 'DamageApplied',
+      actor: player.uid,
+      payload: {
+        targetId: player.uid,
+        damage: -1, // negative for healing
+        newHp: newPlayer.hp,
+        source: 'sanctuary'
+      }
+    });
+  }
+
   events.push({
     id: generateUID(),
     ts: ctx.now(),
-    type: 'SanctuaryEntered',
+    type: 'TileEntered',
     actor: player.uid,
     payload: {
       tileId: tile.id,
-      message: 'You are safe in the sanctuary'
+      sanctuary: true,
+      healed: newPlayer.hp > oldHp
     }
   });
 
-  return { state, events };
+  return { state: newState, events };
 }

@@ -205,13 +205,19 @@ export async function createGame(roomData: RoomDoc): Promise<string> {
     players,
 
     decks: {
-      treasureT1: { draw: [], discard: [] },
-      treasureT2: { draw: [], discard: [] },
-      treasureT3: { draw: [], discard: [] },
-      chance: { draw: [], discard: [] },
-      enemyT1: { draw: [], discard: [] },
-      enemyT2: { draw: [], discard: [] },
-      enemyT3: { draw: [], discard: [] }
+      treasure: {
+        t1: { drawPile: [], discardPile: [] },
+        t2: { drawPile: [], discardPile: [] },
+        t3: { drawPile: [], discardPile: [] }
+      },
+      chance: {
+        main: { drawPile: [], discardPile: [] }
+      },
+      enemies: {
+        t1: { drawPile: [], discardPile: [] },
+        t2: { drawPile: [], discardPile: [] },
+        t3: { drawPile: [], discardPile: [] }
+      }
     },
 
     tileState: {

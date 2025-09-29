@@ -201,13 +201,19 @@ export async function startGame(roomCode: string): Promise<string> {
       players,
 
       decks: {
-        treasureT1: initializeDeck([]), // Will be populated from content catalog
-        treasureT2: initializeDeck([]),
-        treasureT3: initializeDeck([]),
-        chance: initializeDeck([]),
-        enemyT1: initializeDeck([]),
-        enemyT2: initializeDeck([]),
-        enemyT3: initializeDeck([])
+        treasure: {
+          t1: initializeDeck([]), // Will be populated from content catalog
+          t2: initializeDeck([]),
+          t3: initializeDeck([])
+        },
+        chance: {
+          main: initializeDeck([])
+        },
+        enemies: {
+          t1: initializeDeck([]),
+          t2: initializeDeck([]),
+          t3: initializeDeck([])
+        }
       },
 
       tileState: {
