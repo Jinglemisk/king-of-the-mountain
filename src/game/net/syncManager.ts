@@ -8,7 +8,8 @@ import {
   subscribeToGameLog,
   subscribeToChat,
   applyGameAction,
-  sendChatMessage
+  sendChatMessage,
+  addGameLog
 } from './gameService';
 import { subscribeToRoom } from './roomService';
 import { useGameStore } from '../ui/stores/gameStore';
@@ -132,8 +133,8 @@ export class SyncManager {
     // Check for pending actions that succeeded
     this.clearCompletedPendingActions();
 
-    // Process domain events from the game state and update UI accordingly
-    this.processGameEvents(game);
+    // Note: Events are now emitted during engine execution via ctx.emit()
+    // and written to Firestore via processEngineEvent(), then synced back via subscribeToGameLog()
 
     if (this.callbacks.onGameUpdate) {
       this.callbacks.onGameUpdate(game);
@@ -143,28 +144,6 @@ export class SyncManager {
     const isMyTurnNow = this.isMyTurn();
     if (!wasMyTurn && isMyTurnNow) {
       this.notifyTurnStart();
-    }
-  }
-
-  private processGameEvents(game: GameDoc): void {
-    const store = useGameStore.getState();
-
-    // Process events from the game state if available
-    if ((game as any).lastEvent) {
-      const event = (game as any).lastEvent;
-
-      // Handle card drawing events
-      if (event.type === 'TreasureDrawn') {
-        store.showCardDialog('treasure', event.payload?.card);
-      } else if (event.type === 'ChanceCardResolved') {
-        store.showCardDialog('chance', event.payload?.card);
-      }
-
-      // Convert events to log entries
-      const logEntry = this.eventToLogEntry(event);
-      if (logEntry) {
-        store.addLogEntry(logEntry);
-      }
     }
   }
 
@@ -463,20 +442,33 @@ export class SyncManager {
     this.pendingActions.clear();
   }
 
-  private processEngineEvent(event: any): void {
+  private async processEngineEvent(event: any): Promise<void> {
+    console.log('[SyncManager] processEngineEvent called with:', event.type, event);
     const store = useGameStore.getState();
 
     // Handle card drawing events
     if (event.type === 'TreasureDrawn' && event.payload?.card) {
+      console.log('[SyncManager] TreasureDrawn event - showing dialog with card:', event.payload.card);
       store.showCardDialog('treasure', event.payload.card);
     } else if (event.type === 'ChanceCardResolved' && event.payload?.card) {
+      console.log('[SyncManager] ChanceCardResolved event - showing dialog with card:', event.payload.card);
       store.showCardDialog('chance', event.payload.card);
     }
 
-    // Convert event to log entry
+    // Convert event to log entry and write to Firestore
+    // Firestore is the source of truth for logs in multiplayer
     const logEntry = this.eventToLogEntry(event);
-    if (logEntry) {
-      store.addLogEntry(logEntry);
+    if (logEntry && this.currentGameId) {
+      console.log('[SyncManager] Writing log to Firestore:', logEntry.message);
+      // Write to Firestore so all players see it
+      await addGameLog(
+        this.currentGameId,
+        event.type,
+        logEntry.message,
+        logEntry.details
+      );
+    } else {
+      console.log('[SyncManager] No log entry created or no gameId:', { logEntry, gameId: this.currentGameId });
     }
   }
 

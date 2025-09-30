@@ -70,11 +70,7 @@ export class ActionHandlers {
       console.log('[ActionHandlers] Executing rollMovement action');
       await this.syncManager.executeAction('rollMovement', {}, action);
 
-      // Log the action
-      const gameId = this.syncManager.getGameId();
-      if (gameId) {
-        await addGameLog(gameId, 'Movement', 'rolled dice for movement', {});
-      }
+      // Note: DiceRolled and Moved events are now automatically emitted and logged by the engine
 
       return { success: true };
     } catch (error) {

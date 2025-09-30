@@ -55,10 +55,12 @@ export function resolveTileEffect(
   const board = state.board.graph as BoardGraphExtended;
   const tile = board.nodes.find(n => n.id === tileId);
 
+  console.log('[tileResolver] resolveTileEffect called for tile:', tileId);
   if (!tile) {
     throw new Error(`Tile ${tileId} not found`);
   }
 
+  console.log('[tileResolver] Tile found - type:', tile.type, 'tier:', tile.tier);
   const player = newState.players[playerId];
   if (!player) {
     throw new Error(`Player ${playerId} not found`);
@@ -77,6 +79,7 @@ export function resolveTileEffect(
     }
   });
 
+  console.log('[tileResolver] Processing tile type:', tile.type);
   switch (tile.type) {
     case 'enemy':
       return resolveEnemyTile(newState, player, tile, ctx, events);
@@ -191,6 +194,7 @@ function resolveTreasureTile(
   ctx: EngineContext,
   events: DomainEvent[]
 ): TileResolutionResult {
+  console.log('[tileResolver] resolveTreasureTile called');
   const tier = tile.tier || 1;
   const treasureDeck = getTreasureDeckByTier(state, tier);
 
@@ -258,18 +262,30 @@ function resolveTreasureTile(
   // Add to player's backpack (will need capacity check later)
   newPlayer.inventory.backpack.push(itemInstance);
 
+  // Get the item definition for the card data
+  const { TREASURES } = require('../data/content');
+  const itemDef = TREASURES[itemId];
+
+  console.log('[tileResolver] Creating TreasureDrawn event for item:', itemId, itemDef.name);
+
   // Log treasure gain
-  // Log treasure drawn
-  events.push({
+  // Log treasure drawn with full card data
+  const treasureEvent = {
     id: generateUID(),
     ts: ctx.now(),
-    type: 'TreasureDrawn',
+    type: 'TreasureDrawn' as const,
     actor: player.uid,
     payload: {
       tileId: tile.id,
-      tier
+      tier,
+      card: {
+        ...itemDef,
+        instanceId: itemInstance.instanceId
+      }
     }
-  });
+  };
+  console.log('[tileResolver] TreasureDrawn event:', treasureEvent);
+  events.push(treasureEvent);
 
   // Log item gained
   events.push({
@@ -298,6 +314,7 @@ function resolveChanceTile(
   ctx: EngineContext,
   events: DomainEvent[]
 ): TileResolutionResult {
+  console.log('[tileResolver] resolveChanceTile called');
   const chanceDeck = getChanceDeck(state);
 
   if (!chanceDeck) {
@@ -339,21 +356,26 @@ function resolveChanceTile(
     return { state, events };
   }
 
-  // Log chance card drawn
-  events.push({
+  console.log('[tileResolver] Creating ChanceCardResolved event for card:', chanceCardId, chanceCard.name);
+
+  // Log chance card resolved with full card data
+  const chanceEvent = {
     id: generateUID(),
     ts: ctx.now(),
-    type: 'TileEntered',
+    type: 'ChanceCardResolved' as const,
     actor: player.uid,
     payload: {
       tileId: tile.id,
-      chanceCard: {
-        cardId: chanceCardId,
-        cardName: chanceCard.name,
-        rulesText: chanceCard.rulesText
+      card: {
+        id: chanceCardId,
+        name: chanceCard.name,
+        rulesText: chanceCard.rulesText,
+        tier: chanceCard.tier
       }
     }
-  });
+  };
+  console.log('[tileResolver] ChanceCardResolved event:', chanceEvent);
+  events.push(chanceEvent);
 
   // For now, all chance cards are immediate effects
   // Add to discard pile after resolution

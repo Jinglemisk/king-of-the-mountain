@@ -453,17 +453,23 @@ export class GameEngine implements EngineApi {
     const board = this.ensureBoardExtended(newState);
     const roll = ctx.rng.roll('d4', action.uid);
 
-    events.push({
+    const diceEvent = {
       id: `evt_${Date.now()}`,
       ts: ctx.now(),
-      type: 'DiceRolled',
+      type: 'DiceRolled' as const,
       actor: action.uid,
       payload: {
         die: 'd4',
         value: roll.value,
         purpose: 'movement'
       }
-    });
+    };
+    events.push(diceEvent);
+
+    // Emit dice roll event to UI
+    if (ctx.emit) {
+      ctx.emit(diceEvent);
+    }
 
     // Apply movement modifiers
     let totalSteps = roll.value;
@@ -510,10 +516,10 @@ export class GameEngine implements EngineApi {
     newState.board.playerPositions[action.uid] = lampResult.finalStop;
     player.movementHistory.forwardThisTurn = lampResult.historyAfter;
 
-    events.push({
+    const moveEvent = {
       id: `evt_${Date.now()}`,
       ts: ctx.now(),
-      type: 'Moved',
+      type: 'Moved' as const,
       actor: action.uid,
       payload: {
         from: player.position,
@@ -521,7 +527,13 @@ export class GameEngine implements EngineApi {
         steps: roll.value,
         path: moveResult.path
       }
-    });
+    };
+    events.push(moveEvent);
+
+    // Emit movement event to UI
+    if (ctx.emit) {
+      ctx.emit(moveEvent);
+    }
 
     // Check for final tile
     const finalNode = board.nodes.find(n => n.id === lampResult.finalStop);
@@ -582,6 +594,7 @@ export class GameEngine implements EngineApi {
     action: Action,
     ctx: EngineContext
   ): EngineUpdate {
+    console.log('[GameEngine] handleEndTurn called, current phase:', state.phase);
     let newState = { ...state };
 
     // Handle different phases that can call endTurn
@@ -604,22 +617,42 @@ export class GameEngine implements EngineApi {
 
       case 'resolveTile':
         // Resolve the tile the player landed on
+        console.log('[GameEngine] endTurn called from resolveTile phase');
         if (newState.currentPlayer) {
           const player = newState.players[newState.currentPlayer];
+          console.log('[GameEngine] Resolving tile at position:', player.position);
           const tileResult = resolveTileEffect(
             newState,
             newState.currentPlayer,
             player.position,
             ctx
           );
+          console.log('[GameEngine] Tile resolution complete, got', tileResult.events.length, 'events');
 
           // Update state with tile resolution results
           newState = tileResult.state;
+
+          // Emit all tile resolution events to UI
+          console.log('[GameEngine] Emitting', tileResult.events.length, 'tile resolution events');
+          for (const event of tileResult.events) {
+            console.log('[GameEngine] Emitting event:', event.type, event);
+            if (ctx.emit) {
+              ctx.emit(event);
+            } else {
+              console.warn('[GameEngine] No ctx.emit function available!');
+            }
+          }
 
           // Check if we should start combat
           if (tileResult.shouldStartCombat && tileResult.drawnEnemies) {
             // Transition to combat phase with tile events
             const combatTransition = applyPhaseTransition(newState, 'resolveTile', 'combat', ctx);
+            // Emit combat transition events
+            for (const event of combatTransition.events) {
+              if (ctx.emit) {
+                ctx.emit(event);
+              }
+            }
             return {
               state: combatTransition.state,
               events: [...tileResult.events, ...combatTransition.events]
@@ -628,6 +661,12 @@ export class GameEngine implements EngineApi {
 
           // Otherwise go to capacity phase with tile events
           const capacityTransition = applyPhaseTransition(newState, 'resolveTile', 'capacity', ctx);
+          // Emit capacity transition events
+          for (const event of capacityTransition.events) {
+            if (ctx.emit) {
+              ctx.emit(event);
+            }
+          }
           return {
             state: capacityTransition.state,
             events: [...tileResult.events, ...capacityTransition.events]

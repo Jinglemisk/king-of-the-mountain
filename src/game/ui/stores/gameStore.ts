@@ -90,7 +90,6 @@ interface GameStore {
 
   // Log actions
   setLogs: (logs: LogEntry[]) => void;
-  addLogEntry: (entry: Omit<LogEntry, 'id' | 'timestamp'>) => void;
 
   // Card dialog actions
   showCardDialog: (type: 'treasure' | 'chance', card: any) => void;
@@ -178,18 +177,14 @@ export const useGameStore = create<GameStore>((set, get) => ({
   // Log actions
   setLogs: (logs) => set({ logs }),
 
-  addLogEntry: (entry) => set((state) => ({
-    logs: [...state.logs, {
-      id: `log_${Date.now()}_${Math.random()}`,
-      timestamp: Date.now(),
-      ...entry
-    }]
-  })),
-
   // Card dialog actions
-  showCardDialog: (type, card) => set((state) => ({
-    ui: { ...state.ui, activeDialog: type, pendingCard: card }
-  })),
+  showCardDialog: (type, card) => {
+    console.log('[GameStore] showCardDialog called with type:', type, 'card:', card);
+    set((state) => ({
+      ui: { ...state.ui, activeDialog: type, pendingCard: card }
+    }));
+    console.log('[GameStore] activeDialog set to:', type);
+  },
 
   hideCardDialog: () => set((state) => ({
     ui: { ...state.ui, activeDialog: null, pendingCard: null }

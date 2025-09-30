@@ -246,6 +246,7 @@ export type DomainEventType =
   | 'DuelStarted'
   | 'DuelEnded'
   | 'TreasureDrawn'
+  | 'ChanceCardResolved'
   | 'ItemGained'
   | 'ItemEquipped'
   | 'ItemUnequipped'
