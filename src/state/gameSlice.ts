@@ -45,6 +45,7 @@ export async function createGameLobby(
     isReady: false,
     isHost: true,
     isAlive: true,
+    actionTaken: null,
     tempEffects: [],
   };
 
@@ -134,6 +135,7 @@ export async function joinGameLobby(
     isReady: false,
     isHost: false,
     isAlive: true,
+    actionTaken: null,
     tempEffects: [],
   };
 

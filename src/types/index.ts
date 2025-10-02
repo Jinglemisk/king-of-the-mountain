@@ -111,6 +111,7 @@ export interface Player {
   isReady: boolean;            // Ready status in lobby
   isHost: boolean;             // True if this player created the lobby
   isAlive: boolean;            // False if HP = 0 (sleeping)
+  actionTaken?: PlayerAction | null; // Action taken this turn (move/sleep)
   specialAbilityUsed?: boolean; // For Monk class - tracks if revival used
   isInvisible?: boolean;       // For Fairy Dust effect
   tempEffects?: TempEffect[];  // Temporary effects active on this player

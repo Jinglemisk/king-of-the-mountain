@@ -54,9 +54,10 @@ export function GameScreen({ gameState, playerId }: GameScreenProps) {
       newPosition = 19;
     }
 
-    // Update player position
+    // Update player position and mark action as taken
     await updateGameState(gameState.lobbyCode, {
       [`players/${playerId}/position`]: newPosition,
+      [`players/${playerId}/actionTaken`]: 'move',
     });
 
     // Log the move
@@ -74,9 +75,10 @@ export function GameScreen({ gameState, playerId }: GameScreenProps) {
    * Handle player choosing Sleep action
    */
   const handleSleep = async () => {
-    // Restore to full HP
+    // Restore to full HP and mark action as taken
     await updateGameState(gameState.lobbyCode, {
       [`players/${playerId}/hp`]: currentPlayer.maxHp,
+      [`players/${playerId}/actionTaken`]: 'sleep',
     });
 
     await addLog(
@@ -100,6 +102,8 @@ export function GameScreen({ gameState, playerId }: GameScreenProps) {
 
     await updateGameState(gameState.lobbyCode, {
       currentTurnIndex: nextIndex,
+      [`players/${playerId}/actionTaken`]: null,
+      [`players/${nextPlayerId}/actionTaken`]: null,
     });
 
     if (nextPlayer) {
@@ -253,14 +257,16 @@ export function GameScreen({ gameState, playerId }: GameScreenProps) {
       );
     }
 
+    const hasActed = currentPlayer.actionTaken !== null && currentPlayer.actionTaken !== undefined;
+
     return (
       <div className="action-buttons">
         <h3>Your Turn!</h3>
         <div className="actions-grid">
-          <Button onClick={handleMove} variant="primary">
+          <Button onClick={handleMove} variant="primary" disabled={hasActed}>
             🎲 Roll & Move
           </Button>
-          <Button onClick={handleSleep} variant="secondary">
+          <Button onClick={handleSleep} variant="secondary" disabled={hasActed}>
             😴 Sleep (Restore HP)
           </Button>
           <Button onClick={() => {}} variant="secondary" disabled>
