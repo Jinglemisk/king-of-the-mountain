@@ -79,7 +79,14 @@ export function GameScreen({ gameState, playerId }: GameScreenProps) {
    * @returns Object with items that fit and items that overflow
    */
   const addItemToInventory = (items: Item[]): { added: Item[]; overflow: Item[] } => {
-    const inventory = currentPlayer.inventory ? [...currentPlayer.inventory] : [];
+    // Get inventory, ensure it's properly initialized with null slots
+    let inventory = currentPlayer.inventory ? [...currentPlayer.inventory] : [null, null, null, null];
+
+    // If inventory is empty array, initialize it with null slots
+    if (inventory.length === 0) {
+      inventory = [null, null, null, null];
+    }
+
     const added: Item[] = [];
     const overflow: Item[] = [];
 
@@ -90,7 +97,13 @@ export function GameScreen({ gameState, playerId }: GameScreenProps) {
         inventory[emptyIndex] = item;
         added.push(item);
       } else {
-        overflow.push(item);
+        // Check if we can expand inventory (shouldn't normally happen)
+        if (inventory.length < (currentPlayer.class === 'Porter' ? 5 : 4)) {
+          inventory.push(item);
+          added.push(item);
+        } else {
+          overflow.push(item);
+        }
       }
     }
 
@@ -285,7 +298,13 @@ export function GameScreen({ gameState, playerId }: GameScreenProps) {
    * Handle inventory update after adding items
    */
   const handleInventoryUpdate = async (items: Item[]) => {
-    const inventory = currentPlayer.inventory ? [...currentPlayer.inventory] : [];
+    // Get inventory, ensure it's properly initialized
+    let inventory = currentPlayer.inventory ? [...currentPlayer.inventory] : [null, null, null, null];
+
+    // If inventory is empty array, initialize it with null slots
+    if (inventory.length === 0) {
+      inventory = [null, null, null, null];
+    }
 
     for (const item of items) {
       const emptyIndex = inventory.findIndex(slot => slot === null);

@@ -1369,6 +1369,16 @@ This would require adding Firebase Authentication, which is currently not implem
    - Commented out unused `calculatePlayerStats()` function (will be used in combat implementation)
    - Prevents TypeScript warnings about unused declarations
 
+5. **Fixed InventoryFullModal appearing when inventory has space**
+   - **Root cause**: Inventory could be empty array `[]` instead of `[null, null, null, null]`
+   - When `inventory = []`, `findIndex(slot => slot === null)` returns `-1` (no nulls found)
+   - Items marked as overflow even though inventory has capacity
+   - **Fix 1**: `addItemToInventory()` now initializes empty arrays to `[null, null, null, null]`
+   - **Fix 2**: `handleInventoryUpdate()` also initializes empty arrays properly
+   - **Fix 3**: Added safety check to expand inventory if under max capacity
+   - **Fix 4**: Improved InventoryFullModal messaging to be clearer about current vs new items
+   - Modal now only appears when inventory is genuinely full
+
 ---
 
 ## Conclusion

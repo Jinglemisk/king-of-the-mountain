@@ -81,7 +81,11 @@ export function InventoryFullModal({
     >
       <div className="inventory-full-modal">
         <div className="modal-message">
-          <p>You have {allItems.length} items but can only carry {maxSlots}.</p>
+          <p>
+            Your inventory is full! You have {currentItems.filter(i => i !== null).length} items
+            {newItems.length > 0 && ` and found ${newItems.length} new item${newItems.length > 1 ? 's' : ''}`}.
+          </p>
+          <p>You can only carry {maxSlots} items total.</p>
           <p>Select up to {maxSlots} items to keep. The rest will be discarded.</p>
           <p className="selection-count">
             Selected: {selectedItems.size}/{maxSlots}
