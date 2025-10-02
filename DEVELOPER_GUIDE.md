@@ -20,12 +20,12 @@
 
 ## Project Overview
 
-**King of the Mountain** is a browser-based, real-time multiplayer board game for 2-6 players. It's a medieval adventure race where players compete to be the first to reach the final tile while fighting enemies, collecting treasures, and navigating chaotic luck cards.
+**King of the Mountain** is a browser-based, real-time multiplayer board game for 2-6 players. It's a medieval adventure race where players compete to be the first to reach the final tile while fighting enemies, collecting treasures, and navigating chaotic Luck Cards.
 
 ### Game Features
 - **7 Player Classes** with unique abilities (Scout, Hunter, Gladiator, Warden, Guard, Monk, Porter)
 - **20-tile board** with different tile types (Enemy, Treasure, Luck, Sanctuary, Final)
-- **3-tier card system** for enemies, treasures, and luck cards
+- **3-tier card system** for enemies, treasures, and Luck Cards
 - **Turn-based combat** with dice rolls (PvE and PvP)
 - **Inventory management** (equipped items and carried items)
 - **Real-time multiplayer** using Firebase Realtime Database
@@ -67,7 +67,7 @@ main.tsx
        ├─> LobbyScreen (Class Selection & Ready Up)
        └─> GameScreen (Main Gameplay)
             ├─> Board (Game Board with Tiles)
-            ├─> Card (Display Items/Enemies/Luck)
+            ├─> Card (Display Items/Enemies/Luck Cards)
             ├─> PlayerToken (Player Markers)
             └─> Modal (Combat/Trade/Dialogs)
 ```
@@ -173,7 +173,7 @@ king-of-the-mountain/
 │   │       └── Modal.tsx      # Modal dialog
 │   │
 │   ├── data/                  # Easily editable game data
-│   │   ├── cards.ts           # Treasure & Luck cards
+│   │   ├── cards.ts           # Treasure & Luck Cards
 │   │   ├── classes.ts         # Player classes
 │   │   └── enemies.ts         # Enemy cards
 │   │
@@ -243,7 +243,7 @@ king-of-the-mountain/
 | **Start** | Starting position for all players |
 | **Enemy (T1/T2/T3)** | Draw enemy cards, enter combat |
 | **Treasure (T1/T2/T3)** | Draw treasure/item cards |
-| **Luck** | Draw luck/chance card (good or bad effects) |
+| **Luck** | Draw Luck Card (good or bad effects) |
 | **Sanctuary** | Safe zone, no duels allowed |
 | **Final** | Win by staying here for 1 full turn |
 
@@ -307,32 +307,34 @@ king-of-the-mountain/
 
 ### ⚠️ Partially Implemented
 
-1. **Game Board**
-   - Visual board exists, tiles display correctly
-   - Player tokens show on tiles
-   - **Missing**: Tile click interactions, tile effect resolution
+1. **Tile Effect Resolution** ✅
+   - Enemy tiles draw enemies and show combat modal
+   - Treasure tiles draw items and add to inventory
+   - Luck tiles draw Luck Cards and display them
+   - Automatic deck reshuffling when empty
+   - **Missing**: Luck Card effect implementations (TODO)
 
 2. **Inventory**
    - UI displays equipped items and carried items
+   - Auto-add items to first available slots
+   - Overflow handling with discard modal
    - **Missing**: Drag & drop, equip/unequip, item swapping
 
 3. **Logging**
    - Log display component exists
-   - Basic logs for moves and system messages
-   - **Missing**: Combat logs, detailed action logs
+   - Logs for moves, card draws, and system messages
+   - **Missing**: Combat result logs (combat not implemented yet)
 
 ### 🔴 Not Implemented
 
-1. **Tile Effect Resolution**
-2. **Combat System (PvE & PvP)**
-3. **Inventory Management (equip/unequip/drop)**
-4. **Item Effects (special abilities)**
-5. **Luck Card Effects (all 13 unique effects)**
-6. **Class Special Abilities (Hunter, Gladiator, Warden, Guard, Monk, Scout bonuses)**
-7. **Trading System**
-8. **Deck Management (reshuffle when empty)**
-9. **Chat System**
-10. **Animations & Sound Effects**
+1. **Combat System (PvE & PvP)** - Provisional modal exists, combat logic needed
+2. **Inventory Management (equip/unequip/swap)** - Display and auto-add works, manual management needed
+3. **Item Effects (special abilities)** - Items defined, activation logic needed
+4. **Luck Card Effects (all unique effects)** - Cards drawn and displayed, effect logic needed
+5. **Class Special Abilities (Hunter, Gladiator, Warden, Guard, Monk, Scout bonuses)**
+6. **Trading System**
+7. **Chat System**
+8. **Animations & Sound Effects**
 
 ---
 
@@ -413,7 +415,7 @@ await selectClass("A3X9K2", playerId, "Scout");
 **Parameters**:
 - `lobbyCode` - The lobby code
 **Side Effects**:
-- Builds and shuffles all card decks (enemies, treasures, luck)
+- Builds and shuffles all card decks (enemies, treasures, Luck Cards)
 - Applies class-specific bonuses (Porter gets +1 inventory slot)
 - Randomizes turn order
 - Changes game status to "active"
@@ -454,7 +456,7 @@ await addLog("A3X9K2", "action", "Alice rolled 4 and moved to tile 7", playerId)
 ```
 
 #### `rollDice(sides: number): number`
-**Location**: `src/state/gameSlice.ts:350`
+**Location**: `src/state/gameSlice.ts:352`
 **Description**: Rolls a dice with specified number of sides
 **Parameters**:
 - `sides` - Number of sides (e.g., 4 or 6)
@@ -463,6 +465,46 @@ await addLog("A3X9K2", "action", "Alice rolled 4 and moved to tile 7", playerId)
 ```typescript
 const movementRoll = rollDice(4); // Returns 1-4
 const attackRoll = rollDice(6);   // Returns 1-6
+```
+
+#### `drawCards(lobbyCode, deckType, tier, count): Promise<any[]>`
+**Location**: `src/state/gameSlice.ts:364`
+**Description**: Draws cards from a treasure or enemy deck with automatic reshuffling
+**Parameters**:
+- `lobbyCode` - The lobby code
+- `deckType` - 'treasure' or 'enemy'
+- `tier` - Deck tier (1, 2, or 3)
+- `count` - Number of cards to draw
+**Returns**: Promise resolving to array of drawn cards
+**Side Effects**: Updates deck and discard pile in Firebase, reshuffles if deck is empty
+**Example**:
+```typescript
+const treasures = await drawCards('ABC123', 'treasure', 2, 1); // Draw 1 T2 treasure
+```
+
+#### `drawLuckCard(lobbyCode): Promise<LuckCard>`
+**Location**: `src/state/gameSlice.ts:426`
+**Description**: Draws a Luck Card from the deck with automatic reshuffling
+**Parameters**:
+- `lobbyCode` - The lobby code
+**Returns**: Promise resolving to the drawn LuckCard
+**Side Effects**: Updates luck deck and discard pile in Firebase, reshuffles if deck is empty
+**Example**:
+```typescript
+const luckCard = await drawLuckCard('ABC123');
+```
+
+#### `drawEnemiesForTile(lobbyCode, tier): Promise<Enemy[]>`
+**Location**: `src/state/gameSlice.ts:471`
+**Description**: Draws enemies for a tile based on tier using composition logic from `getEnemyComposition()`
+**Parameters**:
+- `lobbyCode` - The lobby code
+- `tier` - Enemy tile tier (1, 2, or 3)
+**Returns**: Promise resolving to array of Enemy objects
+**Logic**: Uses probabilistic enemy composition (e.g., T2 tile has 70% chance of 2×T1, 30% chance of 1×T2)
+**Example**:
+```typescript
+const enemies = await drawEnemiesForTile('ABC123', 2); // Might return 2 T1 or 1 T2
 ```
 
 #### `generateTiles(): Tile[]` (private)
@@ -556,11 +598,11 @@ const tier1Treasures = buildTreasureDeck(1); // 24 tier 1 items, shuffled
 
 #### `buildLuckDeck(): LuckCard[]`
 **Location**: `src/data/cards.ts:375`
-**Description**: Builds and shuffles the luck/chance card deck
+**Description**: Builds and shuffles the Luck Card deck
 **Returns**: Shuffled array of 32 LuckCard objects
 **Example**:
 ```typescript
-const luckDeck = buildLuckDeck(); // 32 luck cards, shuffled
+const luckDeck = buildLuckDeck(); // 32 Luck Cards, shuffled
 ```
 
 #### `createItem(...)` (private)
@@ -569,7 +611,7 @@ const luckDeck = buildLuckDeck(); // 32 luck cards, shuffled
 
 #### `createLuckCard(...)` (private)
 **Location**: `src/data/cards.ts:251`
-**Description**: Factory function to create luck card instances with unique IDs
+**Description**: Factory function to create Luck Card instances with unique IDs
 
 ---
 
@@ -662,19 +704,34 @@ console.log(scoutClass?.specialEffect); // "Immune to Trap items..."
 - `activeTab`: 'logs' | 'chat'
 
 **Key Functions**:
-- `handleMove()` - Rolls d4 and moves player forward (location: line 48)
-- `handleSleep()` - Restores player to full HP (location: line 76)
-- `handleEndTurn()` - Advances to next player's turn (location: line 95)
-- `renderEquipment()` - Renders equipped items UI (location: line 117)
-- `renderInventory()` - Renders backpack inventory UI (location: line 172)
-- `renderStats()` - Calculates and displays player stats (location: line 200)
-- `renderActions()` - Renders action buttons for current turn (location: line 247)
-- `renderLogs()` - Renders event logs panel (location: line 285)
+- `handleMove()` - Rolls d4, moves player forward, resolves tile effects (location: line 192)
+- `handleSleep()` - Restores player to full HP (location: line 222)
+- `handleEndTurn()` - Advances to next player's turn (location: line 346)
+- `resolveTileEffect(tile)` - Resolves tile effects (enemy/treasure/luck) (location: line 117)
+- `addItemToInventory(items)` - Adds items to first available slots (location: line 69)
+- `calculatePlayerStats()` - Computes total ATK/DEF from equipment (location: line 91)
+- `handleCardRevealClose()` - Handles card reveal modal close (location: line 245)
+- `handleInventoryDiscard(items)` - Handles inventory overflow (location: line 297)
+- `handleCombatRetreat()` - Moves player back 6 tiles (location: line 316)
+- `renderEquipment()` - Renders equipped items UI (location: line 364)
+- `renderInventory()` - Renders backpack inventory UI (location: line 419)
+- `renderStats()` - Calculates and displays player stats (location: line 447)
+- `renderActions()` - Renders action buttons for current turn (location: line 494)
+- `renderLogs()` - Renders event logs panel (location: line 532)
+
+**Tile Resolution Flow**:
+1. Player moves to new tile
+2. `resolveTileEffect()` checks tile type:
+   - **Enemy tiles**: Draw enemies → Show CardRevealModal → Show CombatModal (provisional)
+   - **Treasure tiles**: Draw treasure → Show CardRevealModal → Add to inventory or show InventoryFullModal
+   - **Luck tiles**: Draw Luck Card → Show CardRevealModal → Apply effects (TODO)
+   - **Start/Sanctuary/Final**: No effect
+3. Effects are logged to game log
 
 **Current Limitations**:
-- Tile effects not resolved after move
-- Inventory is display-only (no drag & drop)
-- Combat and trade modals are placeholders
+- Inventory is display-only (no drag & drop, equip/unequip)
+- Combat modal is provisional (no combat logic yet)
+- Luck Card effects are not implemented yet (cards are drawn and displayed only)
 
 ---
 
@@ -702,7 +759,7 @@ console.log(scoutClass?.specialEffect); // "Immune to Trap items..."
 
 #### `<Card />`
 **Location**: `src/components/game/Card.tsx:22`
-**Description**: Visual representation of treasure, enemy, and luck cards
+**Description**: Visual representation of treasure, enemy, and Luck Cards
 **Props**:
 - `card: Item | Enemy | LuckCard | null` - The card data
 - `type: 'treasure' | 'enemy' | 'luck'` - Card type
@@ -766,6 +823,68 @@ console.log(scoutClass?.specialEffect); // "Immune to Trap items..."
 - Closes on backdrop click if `canClose` is true
 - Shows close button if `canClose` is true
 - Returns null if `!isOpen`
+
+---
+
+### `src/components/game/CardRevealModal.tsx`
+
+#### `<CardRevealModal />`
+**Location**: `src/components/game/CardRevealModal.tsx:26`
+**Description**: Modal that displays revealed cards (treasure, enemy, or Luck Cards) to the player
+**Props**:
+- `isOpen: boolean` - Whether modal is visible
+- `cards: (Item | Enemy | LuckCard)[]` - Array of cards to display
+- `cardType: 'treasure' | 'enemy' | 'luck'` - Type of cards being shown
+- `onClose: () => void` - Callback when modal is closed
+- `title?: string` - Optional custom title
+
+**Behavior**:
+- Displays multiple cards side-by-side if more than one
+- Shows card name, tier (if applicable), and description/effect
+- Cannot be closed by clicking backdrop (must click Continue button)
+- Used by tile resolution to show drawn cards
+
+---
+
+### `src/components/game/CombatModal.tsx`
+
+#### `<CombatModal />`
+**Location**: `src/components/game/CombatModal.tsx:51`
+**Description**: Provisional combat modal for PvE and PvP encounters
+**Props**:
+- `isOpen: boolean` - Whether modal is visible
+- `player: Player` - The player in combat
+- `opponents: (Enemy | Player)[]` - Array of enemies or players being fought
+- `onRetreat?: () => void` - Optional callback for retreat action
+- `onClose?: () => void` - Optional callback when combat ends
+
+**Display**:
+- Shows player on left, opponents on right
+- Displays HP, ATK, DEF for both sides
+- Shows enemy cards for PvE
+- Retreat button moves player back 6 tiles
+- **Note**: Combat logic not implemented yet - this is a provisional UI
+
+---
+
+### `src/components/game/InventoryFullModal.tsx`
+
+#### `<InventoryFullModal />`
+**Location**: `src/components/game/InventoryFullModal.tsx:51`
+**Description**: Modal for handling inventory overflow when adding new items
+**Props**:
+- `isOpen: boolean` - Whether modal is visible
+- `currentItems: (Item | null)[]` - Current inventory items
+- `newItems: Item[]` - New items trying to be added
+- `onDiscard: (itemsToKeep: (Item | null)[]) => void` - Callback with final items to keep
+- `maxSlots: number` - Maximum inventory slots available
+
+**Behavior**:
+- Shows all current + new items in a grid
+- Player clicks to select which items to keep (up to maxSlots)
+- New items are marked with a "NEW" badge
+- Selected items show "✓ Keep", unselected show "✗ Discard"
+- Cannot close until valid selection is made
 
 ---
 
@@ -1133,13 +1252,16 @@ This would require adding Firebase Authentication, which is currently not implem
 ## Next Steps for Developers
 
 ### Immediate Priorities (Week 1)
-1. Implement combat system (PvE) - this is the core gameplay loop
-2. Implement tile effect resolution - needed for cards to be drawn
-3. Basic inventory management - equip/unequip items
+1. ✅ ~~Implement tile effect resolution~~ - **COMPLETED**
+2. ✅ ~~Card drawing with deck management~~ - **COMPLETED**
+3. ✅ ~~Basic inventory auto-add and overflow handling~~ - **COMPLETED**
+4. Implement combat system (PvE) - provisional modal exists, add combat logic
+5. Implement Luck Card effects - cards are drawn, need to apply effects
+6. Manual inventory management - equip/unequip items
 
 ### Short-term Goals (Week 2-3)
 4. Implement all item special effects
-5. Implement all luck card effects
+5. Implement all Luck Card effects
 6. Implement trading system
 7. Add PvP combat
 
@@ -1156,6 +1278,96 @@ This would require adding Firebase Authentication, which is currently not implem
 - Mobile responsive design
 - More classes, items, enemies
 - Alternative game modes (team play, co-op vs AI, etc.)
+
+---
+
+## Recent Updates
+
+### Tile Resolution & Card Drawing System (Latest)
+
+**What was implemented:**
+
+1. **Terminology Standardization**
+   - Replaced all "chance" and "luck/chance" references with "Luck Cards" throughout codebase
+   - Updated developer_guide.md, cards.ts, Card.tsx, and types/index.ts
+
+2. **Card Drawing Functions** (`src/state/gameSlice.ts`)
+   - `drawCards(lobbyCode, deckType, tier, count)` - Generic card drawing with auto-reshuffle
+   - `drawLuckCard(lobbyCode)` - Specialized Luck Card drawing
+   - `drawEnemiesForTile(lobbyCode, tier)` - Enemy drawing using composition logic
+   - Automatic deck rebuilding when both deck and discard are empty
+   - Game log notifications when decks are reshuffled
+
+3. **UI Modal Components** (`src/components/game/`)
+   - **CardRevealModal** - Displays drawn cards with name, tier, and description
+     - Supports multiple cards side-by-side
+     - Cannot be dismissed (must click Continue)
+   - **CombatModal** - Provisional PvE/PvP combat display
+     - Shows player vs opponents with HP, ATK, DEF stats
+     - Retreat option (moves back 6 tiles)
+     - Combat logic to be implemented later
+   - **InventoryFullModal** - Handles inventory overflow
+     - Shows all current + new items
+     - Player selects which items to keep (up to max slots)
+     - Discards unselected items
+
+4. **Tile Resolution System** (`src/screens/GameScreen.tsx`)
+   - `resolveTileEffect(tile)` - Main tile resolution function
+     - **Enemy tiles**: Draw enemies → Show reveal modal → Show combat modal
+     - **Treasure tiles**: Draw treasure → Show reveal modal → Add to inventory or show overflow modal
+     - **Luck tiles**: Draw Luck Card → Show reveal modal → Log effect (implementation pending)
+     - **Start/Sanctuary/Final**: No card effects
+   - `addItemToInventory(items)` - Helper to add items to first available slots
+   - `calculatePlayerStats()` - Helper to compute total ATK/DEF from equipment
+   - Full integration with `handleMove()` - tile effects trigger automatically after movement
+
+5. **Game Flow Integration**
+   - Cards are drawn when player lands on tile (not Start, Sanctuary, or Final)
+   - All card draws are logged to game event log
+   - Inventory automatically handles overflow with player choice modal
+   - Combat encounters are queued after card reveal
+   - All existing deck initialization logic is utilized (no dead code)
+
+**What still needs implementation:**
+- Combat logic (modal is provisional UI only)
+- Luck Card effect applications (cards are drawn and displayed, effects need logic)
+- Manual inventory management (equip/unequip/swap items)
+- Item special ability activation
+
+**Testing checklist:**
+- ✅ Enemy tiles draw correct enemy composition based on tier
+- ✅ Treasure tiles draw treasure and attempt to add to inventory
+- ✅ Luck tiles draw and display Luck Cards
+- ✅ Inventory overflow triggers discard modal
+- ✅ Decks automatically reshuffle when empty
+- ✅ All effects are logged to game log
+- ✅ Combat modal displays after enemy reveal (retreat works)
+
+**Bug Fixes (Post-Implementation):**
+
+1. **Fixed `Cannot read properties of undefined (reading 'length')` error** (GameScreen.tsx:701)
+   - Added null/undefined checks for `currentPlayer.inventory` throughout
+   - Added null/undefined checks for `currentPlayer.equipment` throughout
+   - Added safety check for `currentTurnPlayer` when game status is 'active'
+   - Created `safeTurnPlayer` fallback for proper rendering before game starts
+   - All null safety checks use optional chaining and fallback values
+
+2. **Fixed `gameState[discardKey] is not iterable` error** (gameSlice.ts:378)
+   - **Root cause**: Discard piles were not initialized when game started
+   - **Fix 1**: Added discard pile initialization in `startGame()` function
+     - `enemyDiscard1/2/3`, `treasureDiscard1/2/3`, `luckDiscard` now all initialize as `[]`
+   - **Fix 2**: Added `Array.isArray()` checks in `drawCards()` function
+     - Safely handles cases where discard piles might be undefined/null
+   - **Fix 3**: Added `Array.isArray()` checks in `drawLuckCard()` function
+   - Now all deck drawing functions are bulletproof against missing/invalid data
+
+3. **Fixed TypeScript type error in CardRevealModal**
+   - Used type guards to properly check for `description` vs `special` properties
+   - Enemy cards show `special`, Item/LuckCards show `description`
+
+4. **Code cleanup**
+   - Commented out unused `calculatePlayerStats()` function (will be used in combat implementation)
+   - Prevents TypeScript warnings about unused declarations
 
 ---
 

@@ -34,7 +34,7 @@ export type TileType =
 export type CardType =
   | 'enemy'      // Enemy card
   | 'treasure'   // Treasure/Item card
-  | 'luck';      // Luck/Chance card
+  | 'luck';      // Luck Card
 
 /** Item categories determining inventory slot usage */
 export type ItemCategory =
@@ -146,7 +146,7 @@ export interface Enemy {
 // CARD TYPES
 // ============================================================================
 
-/** Luck/Chance card definition */
+/** Luck Card definition */
 export interface LuckCard {
   id: string;                  // Card identifier
   name: string;                // Card name

@@ -1,5 +1,5 @@
 /**
- * Card definitions for Treasure and Luck/Chance decks
+ * Card definitions for Treasure and Luck Card decks
  * Items and effects are organized by tier
  * Easily editable - add/remove/modify cards by editing the arrays below
  */
@@ -236,7 +236,7 @@ export const TIER_3_TREASURE_FACTORIES = [
 ];
 
 // ============================================================================
-// LUCK/CHANCE CARDS (32 total)
+// LUCK CARDS (32 total)
 // ============================================================================
 
 /**
@@ -369,7 +369,7 @@ export function buildTreasureDeck(tier: 1 | 2 | 3): Item[] {
 }
 
 /**
- * Build a shuffled luck deck
+ * Build a shuffled Luck Card deck
  * @returns Shuffled array of LuckCard objects
  */
 export function buildLuckDeck(): LuckCard[] {

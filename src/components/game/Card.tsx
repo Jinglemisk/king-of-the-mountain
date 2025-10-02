@@ -1,6 +1,6 @@
 /**
  * Card component
- * Displays treasure, enemy, and luck cards
+ * Displays treasure, enemy, and Luck Cards
  */
 
 import type { Item, Enemy, LuckCard } from '../../types';

@@ -13,7 +13,7 @@ import type {
   PlayerClass,
   TileType,
 } from '../types';
-import { buildEnemyDeck } from '../data/enemies';
+import { buildEnemyDeck, getEnemyComposition } from '../data/enemies';
 import { buildTreasureDeck, buildLuckDeck } from '../data/cards';
 
 /**
@@ -227,6 +227,14 @@ export async function startGame(lobbyCode: string): Promise<void> {
     treasureDeck2,
     treasureDeck3,
     luckDeck,
+    // Initialize all discard piles as empty arrays
+    enemyDiscard1: [],
+    enemyDiscard2: [],
+    enemyDiscard3: [],
+    treasureDiscard1: [],
+    treasureDiscard2: [],
+    treasureDiscard3: [],
+    luckDiscard: [],
     turnOrder,
     currentTurnIndex: 0,
     logs: [
@@ -351,4 +359,134 @@ function createLogEntry(
  */
 export function rollDice(sides: number): number {
   return Math.floor(Math.random() * sides) + 1;
+}
+
+/**
+ * Draw cards from a treasure or enemy deck (with auto-reshuffle)
+ * @param lobbyCode - The lobby code
+ * @param deckType - Type of deck ('treasure' or 'enemy')
+ * @param tier - Deck tier (1, 2, or 3)
+ * @param count - Number of cards to draw
+ * @returns Array of drawn cards (Items or Enemies)
+ */
+export async function drawCards(
+  lobbyCode: string,
+  deckType: 'treasure' | 'enemy',
+  tier: 1 | 2 | 3,
+  count: number
+): Promise<any[]> {
+  const gameRef = ref(database, `games/${lobbyCode}`);
+  const snapshot = await get(gameRef);
+  const gameState = snapshot.val() as GameState;
+
+  const deckKey = `${deckType}Deck${tier}` as keyof GameState;
+  const discardKey = `${deckType}Discard${tier}` as keyof GameState;
+
+  let deck = Array.isArray(gameState[deckKey]) ? [...(gameState[deckKey] as any[])] : [];
+  let discard = Array.isArray(gameState[discardKey]) ? [...(gameState[discardKey] as any[])] : [];
+  const drawnCards: any[] = [];
+
+  for (let i = 0; i < count; i++) {
+    // If deck is empty, reshuffle discard pile back into deck
+    if (deck.length === 0) {
+      if (discard.length === 0) {
+        // Both deck and discard are empty - rebuild entire deck
+        if (deckType === 'treasure') {
+          deck = buildTreasureDeck(tier);
+        } else {
+          deck = buildEnemyDeck(tier);
+        }
+        await addLog(lobbyCode, 'system', `${deckType} Tier ${tier} deck was empty and has been rebuilt.`);
+      } else {
+        // Shuffle discard pile back into deck
+        deck = [...discard];
+        discard.length = 0;
+        // Shuffle the deck
+        for (let j = deck.length - 1; j > 0; j--) {
+          const k = Math.floor(Math.random() * (j + 1));
+          [deck[j], deck[k]] = [deck[k], deck[j]];
+        }
+        await addLog(lobbyCode, 'system', `${deckType} Tier ${tier} deck reshuffled from discard pile.`);
+      }
+    }
+
+    // Draw from top of deck
+    const card = deck.shift();
+    if (card) {
+      drawnCards.push(card);
+    }
+  }
+
+  // Update game state with new deck and discard
+  await update(gameRef, {
+    [deckKey]: deck,
+    [discardKey]: discard,
+  });
+
+  return drawnCards;
+}
+
+/**
+ * Draw a Luck Card from the deck (with auto-reshuffle)
+ * @param lobbyCode - The lobby code
+ * @returns The drawn LuckCard
+ */
+export async function drawLuckCard(lobbyCode: string): Promise<any> {
+  const gameRef = ref(database, `games/${lobbyCode}`);
+  const snapshot = await get(gameRef);
+  const gameState = snapshot.val() as GameState;
+
+  let luckDeck = Array.isArray(gameState.luckDeck) ? [...gameState.luckDeck] : [];
+  let luckDiscard = Array.isArray(gameState.luckDiscard) ? [...gameState.luckDiscard] : [];
+
+  // If deck is empty, reshuffle discard pile
+  if (luckDeck.length === 0) {
+    if (luckDiscard.length === 0) {
+      // Both empty - rebuild entire deck
+      luckDeck = buildLuckDeck();
+      await addLog(lobbyCode, 'system', 'Luck Card deck was empty and has been rebuilt.');
+    } else {
+      // Shuffle discard back into deck
+      luckDeck = [...luckDiscard];
+      luckDiscard = [];
+      // Shuffle
+      for (let i = luckDeck.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [luckDeck[i], luckDeck[j]] = [luckDeck[j], luckDeck[i]];
+      }
+      await addLog(lobbyCode, 'system', 'Luck Card deck reshuffled from discard pile.');
+    }
+  }
+
+  // Draw from top of deck
+  const drawnCard = luckDeck.shift();
+
+  // Update game state
+  await update(gameRef, {
+    luckDeck,
+    luckDiscard,
+  });
+
+  return drawnCard;
+}
+
+/**
+ * Get enemies to draw based on tile tier using composition logic
+ * @param lobbyCode - The lobby code
+ * @param tier - Enemy tile tier (1, 2, or 3)
+ * @returns Array of drawn Enemy cards
+ */
+export async function drawEnemiesForTile(
+  lobbyCode: string,
+  tier: 1 | 2 | 3
+): Promise<any[]> {
+  const composition = getEnemyComposition(tier);
+  const allEnemies: any[] = [];
+
+  for (const comp of composition) {
+    const enemies = await drawCards(lobbyCode, 'enemy', comp.tier, comp.count);
+    allEnemies.push(...enemies);
+  }
+
+  return allEnemies;
 }

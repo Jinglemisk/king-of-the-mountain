@@ -4,12 +4,22 @@
  */
 
 import { useState } from 'react';
-import type { GameState, Item } from '../types';
+import type { GameState, Item, Enemy, LuckCard, Tile } from '../types';
 import { Board } from '../components/game/Board';
 import { Card } from '../components/game/Card';
 import { Button } from '../components/ui/Button';
 import { Modal } from '../components/ui/Modal';
-import { updateGameState, addLog, rollDice } from '../state/gameSlice';
+import { CardRevealModal } from '../components/game/CardRevealModal';
+import { CombatModal } from '../components/game/CombatModal';
+import { InventoryFullModal } from '../components/game/InventoryFullModal';
+import {
+  updateGameState,
+  addLog,
+  rollDice,
+  drawCards,
+  drawLuckCard,
+  drawEnemiesForTile,
+} from '../state/gameSlice';
 
 interface GameScreenProps {
   gameState: GameState;
@@ -27,20 +37,171 @@ export function GameScreen({ gameState, playerId }: GameScreenProps) {
   const [showLogs, setShowLogs] = useState(false);
   const [activeTab, setActiveTab] = useState<'logs' | 'chat'>('logs');
 
+  // State for modals
+  const [revealedCards, setRevealedCards] = useState<(Item | Enemy | LuckCard)[]>([]);
+  const [revealCardType, setRevealCardType] = useState<'treasure' | 'enemy' | 'luck'>('treasure');
+  const [showCardReveal, setShowCardReveal] = useState(false);
+  const [showCombat, setShowCombat] = useState(false);
+  const [combatEnemies, setCombatEnemies] = useState<Enemy[]>([]);
+  const [showInventoryFull, setShowInventoryFull] = useState(false);
+  const [pendingItems, setPendingItems] = useState<Item[]>([]);
+
   // Get current player and turn info
   const currentPlayer = gameState.players[playerId];
   const currentTurnPlayerId = gameState.turnOrder[gameState.currentTurnIndex];
   const isMyTurn = currentTurnPlayerId === playerId;
   const currentTurnPlayer = currentTurnPlayerId ? gameState.players[currentTurnPlayerId] : null;
 
-  // Safety check - if player data is missing, show loading
-  if (!currentPlayer || !currentTurnPlayer) {
+  // Safety check - if player data is missing or incomplete, show loading
+  if (!currentPlayer) {
     return (
       <div className="screen loading-screen">
         <p>Loading player data...</p>
       </div>
     );
   }
+
+  // Safety check - if game hasn't started yet, no turn player exists
+  if (gameState.status === 'active' && !currentTurnPlayer) {
+    return (
+      <div className="screen loading-screen">
+        <p>Loading turn data...</p>
+      </div>
+    );
+  }
+
+  // Provide default turn player for non-active games
+  const safeTurnPlayer = currentTurnPlayer || currentPlayer;
+
+  /**
+   * Helper: Add items to first available inventory slots
+   * @param items - Items to add
+   * @returns Object with items that fit and items that overflow
+   */
+  const addItemToInventory = (items: Item[]): { added: Item[]; overflow: Item[] } => {
+    const inventory = currentPlayer.inventory ? [...currentPlayer.inventory] : [];
+    const added: Item[] = [];
+    const overflow: Item[] = [];
+
+    for (const item of items) {
+      // Find first null/empty slot
+      const emptyIndex = inventory.findIndex(slot => slot === null);
+      if (emptyIndex !== -1) {
+        inventory[emptyIndex] = item;
+        added.push(item);
+      } else {
+        overflow.push(item);
+      }
+    }
+
+    return { added, overflow };
+  };
+
+  /**
+   * Helper: Calculate player's total attack and defense from equipment
+   * Note: This function is kept for future use in combat logic
+   */
+  // const calculatePlayerStats = (): { attack: number; defense: number } => {
+  //   let attack = 1; // Base attack
+  //   let defense = 1; // Base defense
+
+  //   if (!currentPlayer.equipment) {
+  //     return { attack, defense };
+  //   }
+
+  //   const equipment = currentPlayer.equipment;
+
+  //   if (equipment.holdable1) {
+  //     attack += equipment.holdable1.attackBonus || 0;
+  //     defense += equipment.holdable1.defenseBonus || 0;
+  //   }
+  //   if (equipment.holdable2) {
+  //     attack += equipment.holdable2.attackBonus || 0;
+  //     defense += equipment.holdable2.defenseBonus || 0;
+  //   }
+  //   if (equipment.wearable) {
+  //     attack += equipment.wearable.attackBonus || 0;
+  //     defense += equipment.wearable.defenseBonus || 0;
+  //   }
+
+  //   return { attack, defense };
+  // };
+
+  /**
+   * Resolve tile effects based on tile type
+   * @param tile - The tile to resolve
+   */
+  const resolveTileEffect = async (tile: Tile) => {
+    const tileType = tile.type;
+
+    // Start tile and Final tile have no draw effects
+    if (tileType === 'start' || tileType === 'final' || tileType === 'sanctuary') {
+      return;
+    }
+
+    // Enemy tiles - draw enemies and start combat
+    if (tileType === 'enemy1' || tileType === 'enemy2' || tileType === 'enemy3') {
+      const tier = parseInt(tileType.replace('enemy', '')) as 1 | 2 | 3;
+      const enemies = await drawEnemiesForTile(gameState.lobbyCode, tier);
+
+      await addLog(
+        gameState.lobbyCode,
+        'combat',
+        `${currentPlayer.nickname} encountered ${enemies.length} enemy/enemies on Tier ${tier} tile!`,
+        playerId,
+        true
+      );
+
+      // Show enemies in reveal modal first
+      setRevealedCards(enemies);
+      setRevealCardType('enemy');
+      setShowCardReveal(true);
+
+      // Store enemies for combat modal
+      setCombatEnemies(enemies as Enemy[]);
+    }
+
+    // Treasure tiles - draw treasures and add to inventory
+    if (tileType === 'treasure1' || tileType === 'treasure2' || tileType === 'treasure3') {
+      const tier = parseInt(tileType.replace('treasure', '')) as 1 | 2 | 3;
+      const treasures = await drawCards(gameState.lobbyCode, 'treasure', tier, 1);
+
+      await addLog(
+        gameState.lobbyCode,
+        'action',
+        `${currentPlayer.nickname} found a Tier ${tier} treasure!`,
+        playerId
+      );
+
+      // Show treasure in reveal modal
+      setRevealedCards(treasures);
+      setRevealCardType('treasure');
+      setShowCardReveal(true);
+
+      // Try to add to inventory
+      setPendingItems(treasures as Item[]);
+    }
+
+    // Luck tile - draw Luck Card
+    if (tileType === 'luck') {
+      const luckCard = await drawLuckCard(gameState.lobbyCode);
+
+      await addLog(
+        gameState.lobbyCode,
+        'action',
+        `${currentPlayer.nickname} drew a Luck Card: ${luckCard.name}`,
+        playerId,
+        true
+      );
+
+      // Show Luck Card in reveal modal
+      setRevealedCards([luckCard]);
+      setRevealCardType('luck');
+      setShowCardReveal(true);
+
+      // TODO: Apply Luck Card effects (future implementation)
+    }
+  };
 
   /**
    * Handle player rolling dice to move
@@ -68,7 +229,11 @@ export function GameScreen({ gameState, playerId }: GameScreenProps) {
       playerId
     );
 
-    // TODO: Resolve tile effects (enemy, treasure, luck, etc.)
+    // Resolve tile effects
+    const landedTile = gameState.tiles[newPosition];
+    if (landedTile) {
+      await resolveTileEffect(landedTile);
+    }
   };
 
   /**
@@ -92,6 +257,107 @@ export function GameScreen({ gameState, playerId }: GameScreenProps) {
   };
 
   /**
+   * Handle card reveal modal close
+   */
+  const handleCardRevealClose = () => {
+    setShowCardReveal(false);
+
+    // If it was an enemy reveal, show combat modal
+    if (revealCardType === 'enemy' && combatEnemies.length > 0) {
+      setShowCombat(true);
+    }
+
+    // If it was a treasure reveal, try to add to inventory
+    if (revealCardType === 'treasure' && pendingItems.length > 0) {
+      const result = addItemToInventory(pendingItems);
+
+      if (result.overflow.length > 0) {
+        // Inventory full - show discard modal
+        setShowInventoryFull(true);
+      } else {
+        // All items fit - update inventory
+        handleInventoryUpdate(result.added);
+      }
+    }
+  };
+
+  /**
+   * Handle inventory update after adding items
+   */
+  const handleInventoryUpdate = async (items: Item[]) => {
+    const inventory = currentPlayer.inventory ? [...currentPlayer.inventory] : [];
+
+    for (const item of items) {
+      const emptyIndex = inventory.findIndex(slot => slot === null);
+      if (emptyIndex !== -1) {
+        inventory[emptyIndex] = item;
+      }
+    }
+
+    await updateGameState(gameState.lobbyCode, {
+      [`players/${playerId}/inventory`]: inventory,
+    });
+
+    await addLog(
+      gameState.lobbyCode,
+      'action',
+      `${currentPlayer.nickname} added ${items.length} item(s) to inventory`,
+      playerId
+    );
+
+    setPendingItems([]);
+  };
+
+  /**
+   * Handle inventory full modal - player selected which items to keep
+   */
+  const handleInventoryDiscard = async (itemsToKeep: (Item | null)[]) => {
+    await updateGameState(gameState.lobbyCode, {
+      [`players/${playerId}/inventory`]: itemsToKeep,
+    });
+
+    await addLog(
+      gameState.lobbyCode,
+      'action',
+      `${currentPlayer.nickname} reorganized inventory`,
+      playerId
+    );
+
+    setShowInventoryFull(false);
+    setPendingItems([]);
+  };
+
+  /**
+   * Handle combat retreat
+   */
+  const handleCombatRetreat = async () => {
+    // Move back 6 tiles
+    const newPosition = Math.max(0, currentPlayer.position - 6);
+
+    await updateGameState(gameState.lobbyCode, {
+      [`players/${playerId}/position`]: newPosition,
+    });
+
+    await addLog(
+      gameState.lobbyCode,
+      'combat',
+      `${currentPlayer.nickname} retreated to tile ${newPosition}`,
+      playerId
+    );
+
+    setShowCombat(false);
+    setCombatEnemies([]);
+  };
+
+  /**
+   * Handle combat close (temporary until combat is implemented)
+   */
+  const handleCombatClose = () => {
+    setShowCombat(false);
+    setCombatEnemies([]);
+  };
+
+  /**
    * Handle ending the current turn
    */
   const handleEndTurn = async () => {
@@ -110,7 +376,7 @@ export function GameScreen({ gameState, playerId }: GameScreenProps) {
       await addLog(
         gameState.lobbyCode,
         'system',
-        `${currentTurnPlayer.nickname}'s turn ended. It's now ${nextPlayer.nickname}'s turn.`
+        `${safeTurnPlayer.nickname}'s turn ended. It's now ${nextPlayer.nickname}'s turn.`
       );
     }
   };
@@ -252,7 +518,7 @@ export function GameScreen({ gameState, playerId }: GameScreenProps) {
     if (!isMyTurn) {
       return (
         <div className="turn-info">
-          <p>⏳ Waiting for {currentTurnPlayer.nickname}'s turn...</p>
+          <p>⏳ Waiting for {safeTurnPlayer.nickname}'s turn...</p>
         </div>
       );
     }
@@ -425,6 +691,32 @@ export function GameScreen({ gameState, playerId }: GameScreenProps) {
           </div>
         </Modal>
       )}
+
+      {/* Card Reveal Modal */}
+      <CardRevealModal
+        isOpen={showCardReveal}
+        cards={revealedCards}
+        cardType={revealCardType}
+        onClose={handleCardRevealClose}
+      />
+
+      {/* Combat Modal */}
+      <CombatModal
+        isOpen={showCombat}
+        player={currentPlayer}
+        opponents={combatEnemies}
+        onRetreat={handleCombatRetreat}
+        onClose={handleCombatClose}
+      />
+
+      {/* Inventory Full Modal */}
+      <InventoryFullModal
+        isOpen={showInventoryFull}
+        currentItems={currentPlayer.inventory || []}
+        newItems={pendingItems}
+        onDiscard={handleInventoryDiscard}
+        maxSlots={currentPlayer.inventory ? currentPlayer.inventory.length : 4}
+      />
     </div>
   );
 }
