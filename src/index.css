@@ -1012,3 +1012,51 @@ h4 { font-size: 1.2rem; }
 ::-webkit-scrollbar-thumb:hover {
   background: var(--color-stone-lighter);
 }
+
+/* ============================================================================
+   DRAG AND DROP STYLES
+   ============================================================================ */
+
+/* Make draggable items show a grab cursor */
+.draggable-item {
+  cursor: grab;
+  transition: opacity 0.2s, transform 0.2s;
+}
+
+.draggable-item:active {
+  cursor: grabbing;
+  opacity: 0.6;
+}
+
+.draggable-item:hover {
+  transform: scale(1.02);
+}
+
+/* Drop zone highlights */
+.drop-zone-valid {
+  box-shadow: 0 0 0 3px var(--color-gold), 0 0 20px rgba(212, 175, 55, 0.4);
+  animation: pulse-valid 1s infinite;
+}
+
+.drop-zone-invalid {
+  box-shadow: 0 0 0 3px var(--color-blood), 0 0 20px rgba(139, 0, 0, 0.4);
+  animation: pulse-invalid 1s infinite;
+}
+
+@keyframes pulse-valid {
+  0%, 100% {
+    box-shadow: 0 0 0 3px var(--color-gold), 0 0 20px rgba(212, 175, 55, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 0 3px var(--color-gold), 0 0 30px rgba(212, 175, 55, 0.6);
+  }
+}
+
+@keyframes pulse-invalid {
+  0%, 100% {
+    box-shadow: 0 0 0 3px var(--color-blood), 0 0 20px rgba(139, 0, 0, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 0 3px var(--color-blood), 0 0 30px rgba(139, 0, 0, 0.6);
+  }
+}

@@ -46,6 +46,9 @@ export function GameScreen({ gameState, playerId }: GameScreenProps) {
   const [showInventoryFull, setShowInventoryFull] = useState(false);
   const [pendingItems, setPendingItems] = useState<Item[]>([]);
 
+  // State for drag-and-drop
+  const [draggedItem, setDraggedItem] = useState<{ item: Item; source: string } | null>(null);
+
   // Get current player and turn info
   const currentPlayer = gameState.players[playerId];
   const currentTurnPlayerId = gameState.turnOrder[gameState.currentTurnIndex];
@@ -139,6 +142,175 @@ export function GameScreen({ gameState, playerId }: GameScreenProps) {
 
   //   return { attack, defense };
   // };
+
+  /**
+   * Validation: Check if an item can be equipped in a specific slot
+   * @param item - The item to validate
+   * @param slot - The target equipment slot
+   * @returns True if valid, false otherwise
+   */
+  const canEquipItemInSlot = (item: Item, slot: 'holdable1' | 'holdable2' | 'wearable'): boolean => {
+    // Small items (consumables) cannot be equipped
+    if (item.category === 'small') {
+      return false;
+    }
+
+    // Holdable items (weapons, shields) can only go in hand slots
+    if (item.category === 'holdable' && (slot === 'holdable1' || slot === 'holdable2')) {
+      return true;
+    }
+
+    // Wearable items (armor, cloaks) can only go in armor slot
+    if (item.category === 'wearable' && slot === 'wearable') {
+      return true;
+    }
+
+    return false;
+  };
+
+  /**
+   * Handle equipping an item from inventory to equipment slot
+   * @param item - The item to equip
+   * @param inventoryIndex - The inventory index where the item is
+   * @param equipmentSlot - The equipment slot to equip to
+   */
+  const handleEquipItem = async (
+    item: Item,
+    inventoryIndex: number,
+    equipmentSlot: 'holdable1' | 'holdable2' | 'wearable'
+  ) => {
+    // Validate the item can be equipped in this slot
+    if (!canEquipItemInSlot(item, equipmentSlot)) {
+      return;
+    }
+
+    const equipment = currentPlayer.equipment || { holdable1: null, holdable2: null, wearable: null };
+    const inventory = currentPlayer.inventory ? [...currentPlayer.inventory] : [null, null, null, null];
+
+    // Check if the equipment slot is already occupied
+    const currentlyEquippedItem = equipment[equipmentSlot];
+
+    // If slot is occupied, swap items (move equipped item to inventory)
+    if (currentlyEquippedItem) {
+      inventory[inventoryIndex] = currentlyEquippedItem;
+      await addLog(
+        gameState.lobbyCode,
+        'action',
+        `${currentPlayer.nickname} swapped ${currentlyEquippedItem.name} with ${item.name} in ${equipmentSlot === 'wearable' ? 'Armor' : equipmentSlot === 'holdable1' ? 'Hand 1' : 'Hand 2'}`,
+        playerId
+      );
+    } else {
+      // Slot is empty, just remove from inventory
+      inventory[inventoryIndex] = null;
+      await addLog(
+        gameState.lobbyCode,
+        'action',
+        `${currentPlayer.nickname} equipped ${item.name} in ${equipmentSlot === 'wearable' ? 'Armor' : equipmentSlot === 'holdable1' ? 'Hand 1' : 'Hand 2'}`,
+        playerId
+      );
+    }
+
+    // Update equipment
+    const updatedEquipment = {
+      ...equipment,
+      [equipmentSlot]: item,
+    };
+
+    // Update Firebase
+    await updateGameState(gameState.lobbyCode, {
+      [`players/${playerId}/equipment`]: updatedEquipment,
+      [`players/${playerId}/inventory`]: inventory,
+    });
+  };
+
+  /**
+   * Handle unequipping an item from equipment slot to inventory
+   * @param item - The item to unequip
+   * @param equipmentSlot - The equipment slot to unequip from
+   */
+  const handleUnequipItem = async (
+    item: Item,
+    equipmentSlot: 'holdable1' | 'holdable2' | 'wearable'
+  ) => {
+    const equipment = currentPlayer.equipment || { holdable1: null, holdable2: null, wearable: null };
+    const inventory = currentPlayer.inventory ? [...currentPlayer.inventory] : [null, null, null, null];
+
+    // Find first empty inventory slot
+    const emptySlotIndex = inventory.findIndex(slot => slot === null);
+
+    if (emptySlotIndex === -1) {
+      // No space in inventory - cannot unequip
+      await addLog(
+        gameState.lobbyCode,
+        'action',
+        `${currentPlayer.nickname} tried to unequip ${item.name} but inventory is full!`,
+        playerId
+      );
+      return;
+    }
+
+    // Move item to inventory
+    inventory[emptySlotIndex] = item;
+
+    // Clear equipment slot
+    const updatedEquipment = {
+      ...equipment,
+      [equipmentSlot]: null,
+    };
+
+    // Update Firebase
+    await updateGameState(gameState.lobbyCode, {
+      [`players/${playerId}/equipment`]: updatedEquipment,
+      [`players/${playerId}/inventory`]: inventory,
+    });
+
+    await addLog(
+      gameState.lobbyCode,
+      'action',
+      `${currentPlayer.nickname} unequipped ${item.name} to inventory`,
+      playerId
+    );
+  };
+
+  /**
+   * Handle swapping items between two equipment slots
+   * @param fromSlot - Source equipment slot
+   * @param toSlot - Target equipment slot
+   */
+  const handleSwapEquippedItems = async (
+    fromSlot: 'holdable1' | 'holdable2' | 'wearable',
+    toSlot: 'holdable1' | 'holdable2' | 'wearable'
+  ) => {
+    const equipment = currentPlayer.equipment || { holdable1: null, holdable2: null, wearable: null };
+    const fromItem = equipment[fromSlot];
+    const toItem = equipment[toSlot];
+
+    if (!fromItem) return;
+
+    // Validate the item can be equipped in the target slot
+    if (!canEquipItemInSlot(fromItem, toSlot)) {
+      return;
+    }
+
+    // Swap items
+    const updatedEquipment = {
+      ...equipment,
+      [fromSlot]: toItem,
+      [toSlot]: fromItem,
+    };
+
+    // Update Firebase
+    await updateGameState(gameState.lobbyCode, {
+      [`players/${playerId}/equipment`]: updatedEquipment,
+    });
+
+    await addLog(
+      gameState.lobbyCode,
+      'action',
+      `${currentPlayer.nickname} swapped ${fromItem.name} between equipment slots`,
+      playerId
+    );
+  };
 
   /**
    * Resolve tile effects based on tile type
@@ -401,6 +573,69 @@ export function GameScreen({ gameState, playerId }: GameScreenProps) {
   };
 
   /**
+   * Handle drag start event
+   * @param item - The item being dragged
+   * @param source - Source location (equipment slot or inventory index)
+   */
+  const handleDragStart = (item: Item, source: string) => {
+    setDraggedItem({ item, source });
+  };
+
+  /**
+   * Handle drag over event (allow drop)
+   */
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault(); // Allow drop
+  };
+
+  /**
+   * Handle drop on equipment slot
+   * @param equipmentSlot - The equipment slot being dropped on
+   */
+  const handleDropOnEquipment = async (
+    e: React.DragEvent,
+    equipmentSlot: 'holdable1' | 'holdable2' | 'wearable'
+  ) => {
+    e.preventDefault();
+
+    if (!draggedItem) return;
+
+    const { item, source } = draggedItem;
+
+    // Determine if dragging from inventory or equipment
+    if (source.startsWith('inventory-')) {
+      // Dragging from inventory to equipment
+      const inventoryIndex = parseInt(source.replace('inventory-', ''));
+      await handleEquipItem(item, inventoryIndex, equipmentSlot);
+    } else if (source.startsWith('equipment-')) {
+      // Dragging from equipment to equipment (swap)
+      const fromSlot = source.replace('equipment-', '') as 'holdable1' | 'holdable2' | 'wearable';
+      await handleSwapEquippedItems(fromSlot, equipmentSlot);
+    }
+
+    setDraggedItem(null);
+  };
+
+  /**
+   * Handle drop on inventory
+   */
+  const handleDropOnInventory = async (e: React.DragEvent) => {
+    e.preventDefault();
+
+    if (!draggedItem) return;
+
+    const { item, source } = draggedItem;
+
+    // Only handle unequipping from equipment to inventory
+    if (source.startsWith('equipment-')) {
+      const equipmentSlot = source.replace('equipment-', '') as 'holdable1' | 'holdable2' | 'wearable';
+      await handleUnequipItem(item, equipmentSlot);
+    }
+
+    setDraggedItem(null);
+  };
+
+  /**
    * Render player's equipment
    */
   const renderEquipment = () => {
@@ -411,41 +646,71 @@ export function GameScreen({ gameState, playerId }: GameScreenProps) {
         <h3>Equipped Items</h3>
         <div className="equipment-slots">
           {/* Holdable slots */}
-          <div className="equipment-slot">
+          <div
+            className={`equipment-slot ${draggedItem && canEquipItemInSlot(draggedItem.item, 'holdable1') ? 'drop-zone-valid' : ''} ${draggedItem && !canEquipItemInSlot(draggedItem.item, 'holdable1') && draggedItem.source !== 'equipment-holdable1' ? 'drop-zone-invalid' : ''}`}
+            onDragOver={handleDragOver}
+            onDrop={(e) => handleDropOnEquipment(e, 'holdable1')}
+          >
             <label>Hand 1</label>
             {equipment.holdable1 ? (
-              <Card
-                card={equipment.holdable1}
-                type="treasure"
-                onClick={() => setSelectedItem(equipment.holdable1)}
-              />
+              <div
+                draggable
+                onDragStart={() => handleDragStart(equipment.holdable1!, 'equipment-holdable1')}
+                className="draggable-item"
+              >
+                <Card
+                  card={equipment.holdable1}
+                  type="treasure"
+                  onClick={() => setSelectedItem(equipment.holdable1)}
+                />
+              </div>
             ) : (
               <div className="empty-slot">Empty</div>
             )}
           </div>
 
-          <div className="equipment-slot">
+          <div
+            className={`equipment-slot ${draggedItem && canEquipItemInSlot(draggedItem.item, 'holdable2') ? 'drop-zone-valid' : ''} ${draggedItem && !canEquipItemInSlot(draggedItem.item, 'holdable2') && draggedItem.source !== 'equipment-holdable2' ? 'drop-zone-invalid' : ''}`}
+            onDragOver={handleDragOver}
+            onDrop={(e) => handleDropOnEquipment(e, 'holdable2')}
+          >
             <label>Hand 2</label>
             {equipment.holdable2 ? (
-              <Card
-                card={equipment.holdable2}
-                type="treasure"
-                onClick={() => setSelectedItem(equipment.holdable2)}
-              />
+              <div
+                draggable
+                onDragStart={() => handleDragStart(equipment.holdable2!, 'equipment-holdable2')}
+                className="draggable-item"
+              >
+                <Card
+                  card={equipment.holdable2}
+                  type="treasure"
+                  onClick={() => setSelectedItem(equipment.holdable2)}
+                />
+              </div>
             ) : (
               <div className="empty-slot">Empty</div>
             )}
           </div>
 
           {/* Wearable slot */}
-          <div className="equipment-slot">
+          <div
+            className={`equipment-slot ${draggedItem && canEquipItemInSlot(draggedItem.item, 'wearable') ? 'drop-zone-valid' : ''} ${draggedItem && !canEquipItemInSlot(draggedItem.item, 'wearable') && draggedItem.source !== 'equipment-wearable' ? 'drop-zone-invalid' : ''}`}
+            onDragOver={handleDragOver}
+            onDrop={(e) => handleDropOnEquipment(e, 'wearable')}
+          >
             <label>Armor</label>
             {equipment.wearable ? (
-              <Card
-                card={equipment.wearable}
-                type="treasure"
-                onClick={() => setSelectedItem(equipment.wearable)}
-              />
+              <div
+                draggable
+                onDragStart={() => handleDragStart(equipment.wearable!, 'equipment-wearable')}
+                className="draggable-item"
+              >
+                <Card
+                  card={equipment.wearable}
+                  type="treasure"
+                  onClick={() => setSelectedItem(equipment.wearable)}
+                />
+              </div>
             ) : (
               <div className="empty-slot">Empty</div>
             )}
@@ -462,17 +727,27 @@ export function GameScreen({ gameState, playerId }: GameScreenProps) {
     const inventory = currentPlayer.inventory || [null, null, null, null];
 
     return (
-      <div className="inventory-section">
+      <div
+        className="inventory-section"
+        onDragOver={handleDragOver}
+        onDrop={handleDropOnInventory}
+      >
         <h3>Carried Items</h3>
         <div className="inventory-slots">
           {inventory.map((item, index) => (
             <div key={index} className="inventory-slot">
               {item ? (
-                <Card
-                  card={item}
-                  type="treasure"
-                  onClick={() => setSelectedItem(item)}
-                />
+                <div
+                  draggable
+                  onDragStart={() => handleDragStart(item, `inventory-${index}`)}
+                  className="draggable-item"
+                >
+                  <Card
+                    card={item}
+                    type="treasure"
+                    onClick={() => setSelectedItem(item)}
+                  />
+                </div>
               ) : (
                 <div className="empty-slot">Empty</div>
               )}
