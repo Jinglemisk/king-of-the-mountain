@@ -115,6 +115,7 @@ export interface Player {
   specialAbilityUsed?: boolean; // For Monk class - tracks if revival used
   isInvisible?: boolean;       // For Fairy Dust effect
   tempEffects?: TempEffect[];  // Temporary effects active on this player
+  skipNextTileEffect?: boolean; // True if player should skip tile effect (trap triggered)
 }
 
 /** Temporary effects that last for a limited time */

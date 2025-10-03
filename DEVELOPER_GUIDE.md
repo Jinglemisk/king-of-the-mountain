@@ -228,6 +228,9 @@ king-of-the-mountain/
 - Continue until one side reaches 0 HP or retreats
 - **Retreat**: Move back 6 tiles, end combat immediately
 
+**🚧 Trap Effect in Combat (Not Yet Implemented):**
+When a player triggers a Trap item and then enters combat on the same turn (e.g., landing on an Enemy tile with a trap), the trap should cause the player to skip their first round of combat attacks. The player can still roll for defense, but cannot attack for one combat round. This mechanic will be implemented when the combat system is completed.
+
 ### Inventory System
 - **Equipped Items** (contribute to stats):
   - 2 Holdable slots (weapons, shields)
@@ -314,13 +317,23 @@ king-of-the-mountain/
    - Automatic deck reshuffling when empty
    - **Missing**: Luck Card effect implementations (TODO)
 
-2. **Inventory**
+2. **Inventory** ✅
    - UI displays equipped items and carried items
    - Auto-add items to first available slots
    - Overflow handling with discard modal
-   - **Missing**: Drag & drop, equip/unequip, item swapping
+   - Drag & drop equip/unequip/swap functionality ✅
+   - Visual feedback for valid/invalid drops ✅
 
-3. **Logging**
+3. **Trap Item System** ✅
+   - Players can place Trap items on their current tile
+   - Traps trigger when other players land on the tile
+   - Trapped players skip tile effect resolution (no card draws)
+   - Scout class is immune to traps
+   - Traps are removed after triggering
+   - Visual indicators on board (⚠️ emoji with pulsing animation)
+   - **Missing**: Trap effect in combat (skip one round) - combat not implemented yet
+
+4. **Logging**
    - Log display component exists
    - Logs for moves, card draws, and system messages
    - **Missing**: Combat result logs (combat not implemented yet)
@@ -328,13 +341,18 @@ king-of-the-mountain/
 ### 🔴 Not Implemented
 
 1. **Combat System (PvE & PvP)** - Provisional modal exists, combat logic needed
-2. **Inventory Management (equip/unequip/swap)** - Display and auto-add works, manual management needed
-3. **Item Effects (special abilities)** - Items defined, activation logic needed
-4. **Luck Card Effects (all unique effects)** - Cards drawn and displayed, effect logic needed
-5. **Class Special Abilities (Hunter, Gladiator, Warden, Guard, Monk, Scout bonuses)**
-6. **Trading System**
-7. **Chat System**
-8. **Animations & Sound Effects**
+   - Trap effect: Skip first combat round when trap triggered on enemy tile
+2. **Item Effects (special abilities)** - Most items defined, some activation logic needed
+   - ✅ Trap placement and triggering (COMPLETED)
+   - ⏳ Luck Charm, Beer, Rage Potion, Fairy Dust, etc. (TODO)
+3. **Luck Card Effects (all unique effects)** - Cards drawn and displayed, effect logic needed
+4. **Class Special Abilities**
+   - ✅ Scout: Trap immunity (COMPLETED)
+   - ✅ Porter: +1 inventory slot (COMPLETED)
+   - ⏳ Hunter, Gladiator, Warden, Guard, Monk (TODO)
+5. **Trading System**
+6. **Chat System**
+7. **Animations & Sound Effects**
 
 ---
 
@@ -704,33 +722,52 @@ console.log(scoutClass?.specialEffect); // "Immune to Trap items..."
 - `activeTab`: 'logs' | 'chat'
 
 **Key Functions**:
-- `handleMove()` - Rolls d4, moves player forward, resolves tile effects (location: line 192)
-- `handleSleep()` - Restores player to full HP (location: line 222)
-- `handleEndTurn()` - Advances to next player's turn (location: line 346)
-- `resolveTileEffect(tile)` - Resolves tile effects (enemy/treasure/luck) (location: line 117)
-- `addItemToInventory(items)` - Adds items to first available slots (location: line 69)
-- `calculatePlayerStats()` - Computes total ATK/DEF from equipment (location: line 91)
-- `handleCardRevealClose()` - Handles card reveal modal close (location: line 245)
-- `handleInventoryDiscard(items)` - Handles inventory overflow (location: line 297)
-- `handleCombatRetreat()` - Moves player back 6 tiles (location: line 316)
-- `renderEquipment()` - Renders equipped items UI (location: line 364)
-- `renderInventory()` - Renders backpack inventory UI (location: line 419)
-- `renderStats()` - Calculates and displays player stats (location: line 447)
-- `renderActions()` - Renders action buttons for current turn (location: line 494)
-- `renderLogs()` - Renders event logs panel (location: line 532)
+- `handleMove()` - Rolls d4, moves player forward, checks for traps, resolves tile effects (location: line 394)
+- `handleSleep()` - Restores player to full HP (location: line 467)
+- `handleEndTurn()` - Advances to next player's turn (location: line 554)
+- `handleUseTrap(item, inventoryIndex)` - Places trap on current tile (location: line 526)
+- `resolveTileEffect(tile)` - Resolves tile effects (enemy/treasure/luck) (location: line 319)
+- `addItemToInventory(items)` - Adds items to first available slots (location: line 81)
+- `handleEquipItem()` - Equips item from inventory to equipment slot (location: line 177)
+- `handleUnequipItem()` - Unequips item from equipment to inventory (location: line 231)
+- `handleSwapEquippedItems()` - Swaps items between equipment slots (location: line 280)
+- `handleCardRevealClose()` - Handles card reveal modal close (location: line 443)
+- `handleInventoryDiscard(items)` - Handles inventory overflow (location: line 505)
+- `handleCombatRetreat()` - Moves player back 6 tiles (location: line 580)
+- `renderEquipment()` - Renders equipped items UI with drag-and-drop (location: line 641)
+- `renderInventory()` - Renders backpack inventory UI with drag-and-drop and trap button (location: line 825)
+- `renderStats()` - Calculates and displays player stats (location: line 876)
+- `renderActions()` - Renders action buttons for current turn (location: line 908)
+- `renderLogs()` - Renders event logs panel (location: line 946)
 
 **Tile Resolution Flow**:
 1. Player moves to new tile
-2. `resolveTileEffect()` checks tile type:
+2. Check for trap on tile:
+   - If trap exists and player is not trap owner:
+     - **Scout class**: Log immunity message, continue to step 3
+     - **Other classes**: Trigger trap, remove trap from tile, skip tile effect (return early)
+3. `resolveTileEffect()` checks tile type (only if not trapped):
    - **Enemy tiles**: Draw enemies → Show CardRevealModal → Show CombatModal (provisional)
    - **Treasure tiles**: Draw treasure → Show CardRevealModal → Add to inventory or show InventoryFullModal
    - **Luck tiles**: Draw Luck Card → Show CardRevealModal → Apply effects (TODO)
    - **Start/Sanctuary/Final**: No effect
-3. Effects are logged to game log
+4. Effects are logged to game log
+
+**Trap System Flow**:
+1. Player uses trap item from inventory (clicks "Place Trap" button on their turn)
+2. `handleUseTrap()` validates:
+   - Cannot place on Start or Sanctuary tiles
+   - Cannot place if tile already has a trap
+3. Trap removed from inventory, tile updated with `hasTrap: true` and `trapOwnerId`
+4. Visual indicator (⚠️) appears on tile with pulsing animation
+5. When another player lands on trapped tile:
+   - Trap owner is unaffected
+   - Scout class is immune (logs message, continues to tile effect)
+   - Other classes trigger trap (skip tile effect, trap is removed)
 
 **Current Limitations**:
-- Inventory is display-only (no drag & drop, equip/unequip)
 - Combat modal is provisional (no combat logic yet)
+- Most item special abilities not yet implemented (except Trap)
 - Luck Card effects are not implemented yet (cards are drawn and displayed only)
 
 ---

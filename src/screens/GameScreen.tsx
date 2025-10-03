@@ -414,11 +414,51 @@ export function GameScreen({ gameState, playerId }: GameScreenProps) {
       playerId
     );
 
-    // Resolve tile effects
+    // Get the landed tile
     const landedTile = gameState.tiles[newPosition];
-    if (landedTile) {
-      await resolveTileEffect(landedTile);
+    if (!landedTile) return;
+
+    // Check for trap on the landed tile
+    if (landedTile.hasTrap && landedTile.trapOwnerId !== playerId) {
+      // Check if player is Scout (immune to traps)
+      if (currentPlayer.class === 'Scout') {
+        await addLog(
+          gameState.lobbyCode,
+          'action',
+          `${currentPlayer.nickname} is a Scout and avoided the trap! 🏹`,
+          playerId,
+          true
+        );
+        // Scout continues to tile effect resolution
+      } else {
+        // Non-Scout triggers trap - skip tile effect
+        await addLog(
+          gameState.lobbyCode,
+          'combat',
+          `${currentPlayer.nickname} triggered a trap! They cannot resolve this tile's effect. ⚠️`,
+          playerId,
+          true
+        );
+
+        // Remove trap from tile
+        const updatedTiles = [...gameState.tiles];
+        updatedTiles[newPosition] = {
+          ...landedTile,
+          hasTrap: false,
+          trapOwnerId: undefined,
+        };
+
+        await updateGameState(gameState.lobbyCode, {
+          tiles: updatedTiles,
+        });
+
+        // Skip tile effect resolution by returning early
+        return;
+      }
     }
+
+    // Resolve tile effects (only reached if no trap or Scout immunity)
+    await resolveTileEffect(landedTile);
   };
 
   /**
@@ -516,6 +556,65 @@ export function GameScreen({ gameState, playerId }: GameScreenProps) {
 
     setShowInventoryFull(false);
     setPendingItems([]);
+  };
+
+  /**
+   * Handle using a Trap item - place it on current tile
+   * @param item - The Trap item being used
+   * @param inventoryIndex - The inventory index where the trap is
+   */
+  const handleUseTrap = async (item: Item, inventoryIndex: number) => {
+    if (item.special !== 'trap') return;
+
+    const currentTile = gameState.tiles[currentPlayer.position];
+
+    // Cannot place trap on Start or Sanctuary tiles
+    if (currentTile.type === 'start' || currentTile.type === 'sanctuary') {
+      await addLog(
+        gameState.lobbyCode,
+        'action',
+        `${currentPlayer.nickname} cannot place a trap on ${currentTile.type} tiles!`,
+        playerId
+      );
+      return;
+    }
+
+    // Cannot place trap if tile already has a trap
+    if (currentTile.hasTrap) {
+      await addLog(
+        gameState.lobbyCode,
+        'action',
+        `${currentPlayer.nickname} cannot place a trap here - there's already one!`,
+        playerId
+      );
+      return;
+    }
+
+    // Remove trap from inventory
+    const inventory = currentPlayer.inventory ? [...currentPlayer.inventory] : [null, null, null, null];
+    inventory[inventoryIndex] = null;
+
+    // Update tile with trap
+    const updatedTiles = [...gameState.tiles];
+    updatedTiles[currentPlayer.position] = {
+      ...currentTile,
+      hasTrap: true,
+      trapOwnerId: playerId,
+    };
+
+    // Update Firebase
+    await updateGameState(gameState.lobbyCode, {
+      [`players/${playerId}/inventory`]: inventory,
+      tiles: updatedTiles,
+    });
+
+    await addLog(
+      gameState.lobbyCode,
+      'action',
+      `${currentPlayer.nickname} placed a Trap on tile ${currentPlayer.position}! ⚠️`,
+      playerId,
+      true
+    );
   };
 
   /**
@@ -737,16 +836,29 @@ export function GameScreen({ gameState, playerId }: GameScreenProps) {
           {inventory.map((item, index) => (
             <div key={index} className="inventory-slot">
               {item ? (
-                <div
-                  draggable
-                  onDragStart={() => handleDragStart(item, `inventory-${index}`)}
-                  className="draggable-item"
-                >
-                  <Card
-                    card={item}
-                    type="treasure"
-                    onClick={() => setSelectedItem(item)}
-                  />
+                <div className="inventory-item-wrapper">
+                  <div
+                    draggable
+                    onDragStart={() => handleDragStart(item, `inventory-${index}`)}
+                    className="draggable-item"
+                  >
+                    <Card
+                      card={item}
+                      type="treasure"
+                      onClick={() => setSelectedItem(item)}
+                    />
+                  </div>
+
+                  {/* Use button for trap items (only on player's turn) */}
+                  {item.special === 'trap' && isMyTurn && (
+                    <button
+                      className="use-item-btn"
+                      onClick={() => handleUseTrap(item, index)}
+                      title="Place trap on current tile"
+                    >
+                      Place Trap
+                    </button>
+                  )}
                 </div>
               ) : (
                 <div className="empty-slot">Empty</div>
