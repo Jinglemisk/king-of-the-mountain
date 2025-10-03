@@ -77,18 +77,32 @@ export function GameScreen({ gameState, playerId }: GameScreenProps) {
   const safeTurnPlayer = currentTurnPlayer || currentPlayer;
 
   /**
+   * Helper: Normalize inventory array to always have correct number of slots
+   * Ensures inventory is always an array with 4 slots (or 5 for Porter), padding with null
+   * @param inventory - Current inventory array (may be incomplete or empty)
+   * @returns Normalized inventory array with proper length
+   */
+  const normalizeInventory = (inventory: (Item | null)[] | undefined | null): (Item | null)[] => {
+    const maxSlots = currentPlayer.class === 'Porter' ? 5 : 4;
+    const currentInventory = inventory || [];
+
+    // Create array with max slots, preserving existing items
+    const normalized: (Item | null)[] = [];
+    for (let i = 0; i < maxSlots; i++) {
+      normalized[i] = currentInventory[i] || null;
+    }
+
+    return normalized;
+  };
+
+  /**
    * Helper: Add items to first available inventory slots
    * @param items - Items to add
-   * @returns Object with items that fit and items that overflow
+   * @returns Object with modified inventory, items that fit, and items that overflow
    */
-  const addItemToInventory = (items: Item[]): { added: Item[]; overflow: Item[] } => {
-    // Get inventory, ensure it's properly initialized with null slots
-    let inventory = currentPlayer.inventory ? [...currentPlayer.inventory] : [null, null, null, null];
-
-    // If inventory is empty array, initialize it with null slots
-    if (inventory.length === 0) {
-      inventory = [null, null, null, null];
-    }
+  const addItemToInventory = (items: Item[]): { inventory: (Item | null)[]; added: Item[]; overflow: Item[] } => {
+    // Normalize inventory to ensure proper slot count
+    const inventory = normalizeInventory(currentPlayer.inventory);
 
     const added: Item[] = [];
     const overflow: Item[] = [];
@@ -100,17 +114,12 @@ export function GameScreen({ gameState, playerId }: GameScreenProps) {
         inventory[emptyIndex] = item;
         added.push(item);
       } else {
-        // Check if we can expand inventory (shouldn't normally happen)
-        if (inventory.length < (currentPlayer.class === 'Porter' ? 5 : 4)) {
-          inventory.push(item);
-          added.push(item);
-        } else {
-          overflow.push(item);
-        }
+        // All slots full - item overflows
+        overflow.push(item);
       }
     }
 
-    return { added, overflow };
+    return { inventory, added, overflow };
   };
 
   /**
@@ -216,10 +225,10 @@ export function GameScreen({ gameState, playerId }: GameScreenProps) {
       [equipmentSlot]: item,
     };
 
-    // Update Firebase
+    // Update Firebase with normalized inventory
     await updateGameState(gameState.lobbyCode, {
       [`players/${playerId}/equipment`]: updatedEquipment,
-      [`players/${playerId}/inventory`]: inventory,
+      [`players/${playerId}/inventory`]: normalizeInventory(inventory),
     });
   };
 
@@ -258,10 +267,10 @@ export function GameScreen({ gameState, playerId }: GameScreenProps) {
       [equipmentSlot]: null,
     };
 
-    // Update Firebase
+    // Update Firebase with normalized inventory
     await updateGameState(gameState.lobbyCode, {
       [`players/${playerId}/equipment`]: updatedEquipment,
-      [`players/${playerId}/inventory`]: inventory,
+      [`players/${playerId}/inventory`]: normalizeInventory(inventory),
     });
 
     await addLog(
@@ -500,39 +509,28 @@ export function GameScreen({ gameState, playerId }: GameScreenProps) {
         // Inventory full - show discard modal
         setShowInventoryFull(true);
       } else {
-        // All items fit - update inventory
-        handleInventoryUpdate(result.added);
+        // All items fit - update inventory with the modified inventory array
+        handleInventoryUpdate(result.inventory);
       }
     }
   };
 
   /**
    * Handle inventory update after adding items
+   * @param inventory - The updated inventory array to save
    */
-  const handleInventoryUpdate = async (items: Item[]) => {
-    // Get inventory, ensure it's properly initialized
-    let inventory = currentPlayer.inventory ? [...currentPlayer.inventory] : [null, null, null, null];
-
-    // If inventory is empty array, initialize it with null slots
-    if (inventory.length === 0) {
-      inventory = [null, null, null, null];
-    }
-
-    for (const item of items) {
-      const emptyIndex = inventory.findIndex(slot => slot === null);
-      if (emptyIndex !== -1) {
-        inventory[emptyIndex] = item;
-      }
-    }
+  const handleInventoryUpdate = async (inventory: (Item | null)[]) => {
+    // Normalize before saving to ensure proper slot count
+    const normalizedInventory = normalizeInventory(inventory);
 
     await updateGameState(gameState.lobbyCode, {
-      [`players/${playerId}/inventory`]: inventory,
+      [`players/${playerId}/inventory`]: normalizedInventory,
     });
 
     await addLog(
       gameState.lobbyCode,
       'action',
-      `${currentPlayer.nickname} added ${items.length} item(s) to inventory`,
+      `${currentPlayer.nickname} added item(s) to inventory`,
       playerId
     );
 
@@ -544,7 +542,7 @@ export function GameScreen({ gameState, playerId }: GameScreenProps) {
    */
   const handleInventoryDiscard = async (itemsToKeep: (Item | null)[]) => {
     await updateGameState(gameState.lobbyCode, {
-      [`players/${playerId}/inventory`]: itemsToKeep,
+      [`players/${playerId}/inventory`]: normalizeInventory(itemsToKeep),
     });
 
     await addLog(
@@ -591,7 +589,7 @@ export function GameScreen({ gameState, playerId }: GameScreenProps) {
     }
 
     // Remove trap from inventory
-    const inventory = currentPlayer.inventory ? [...currentPlayer.inventory] : [null, null, null, null];
+    const inventory = normalizeInventory(currentPlayer.inventory);
     inventory[inventoryIndex] = null;
 
     // Update tile with trap
@@ -602,9 +600,9 @@ export function GameScreen({ gameState, playerId }: GameScreenProps) {
       trapOwnerId: playerId,
     };
 
-    // Update Firebase
+    // Update Firebase with normalized inventory
     await updateGameState(gameState.lobbyCode, {
-      [`players/${playerId}/inventory`]: inventory,
+      [`players/${playerId}/inventory`]: normalizeInventory(inventory),
       tiles: updatedTiles,
     });
 
@@ -823,7 +821,8 @@ export function GameScreen({ gameState, playerId }: GameScreenProps) {
    * Render player's inventory (backpack)
    */
   const renderInventory = () => {
-    const inventory = currentPlayer.inventory || [null, null, null, null];
+    // Always normalize inventory to ensure correct slot count
+    const inventory = normalizeInventory(currentPlayer.inventory);
 
     return (
       <div
