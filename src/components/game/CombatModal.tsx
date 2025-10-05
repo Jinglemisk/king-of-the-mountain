@@ -1,21 +1,21 @@
 /**
  * CombatModal component
- * Displays combat between player and enemies/other players
- * Shows both combatants with their stats (HP, ATK, DEF)
- * This is a provisional modal - combat logic will be implemented later
+ * Interactive combat system for PvE and PvP
+ * Displays combatants, allows attacking with target selection, shows combat log
  */
 
-import type { Player, Enemy } from '../../types';
+import { useState } from 'react';
+import type { Player, Enemy, GameState } from '../../types';
 import { Modal } from '../ui/Modal';
 import { Card } from './Card';
 import { Button } from '../ui/Button';
 
 interface CombatModalProps {
   isOpen: boolean;
-  player: Player;
-  opponents: (Enemy | Player)[];
-  onRetreat?: () => void;
-  onClose?: () => void;
+  gameState: GameState;
+  onAttack: (targetId?: string) => void;
+  onRetreat: () => void;
+  onEndCombat: () => void;
 }
 
 /**
@@ -28,10 +28,11 @@ function isPlayer(opponent: Enemy | Player): opponent is Player {
 /**
  * Calculate player's total attack and defense from equipment
  */
-function calculateStats(player: Player): { attack: number; defense: number } {
+function calculateStats(player: Player, isVsEnemy: boolean): { attack: number; defense: number } {
   let attack = 1; // Base attack
   let defense = 1; // Base defense
 
+  // Equipment bonuses
   const equipment = player.equipment || { holdable1: null, holdable2: null, wearable: null };
 
   if (equipment.holdable1) {
@@ -47,39 +48,70 @@ function calculateStats(player: Player): { attack: number; defense: number } {
     defense += equipment.wearable.defenseBonus || 0;
   }
 
+  // Class bonuses
+  if (isVsEnemy) {
+    if (player.class === 'Hunter') attack += 1;
+    if (player.class === 'Warden') defense += 1;
+  } else {
+    if (player.class === 'Gladiator') attack += 1;
+    if (player.class === 'Guard') defense += 1;
+  }
+
   return { attack, defense };
 }
 
 /**
- * Combat modal for PvE and PvP encounters
- * @param isOpen - Whether modal is visible
- * @param player - The player in combat
- * @param opponents - Array of enemies or players being fought
- * @param onRetreat - Optional callback for retreat action
- * @param onClose - Optional callback when combat ends
+ * Combat modal for PvE and PvP encounters with full combat logic
  */
 export function CombatModal({
   isOpen,
-  player,
-  opponents,
+  gameState,
+  onAttack,
   onRetreat,
-  onClose,
+  onEndCombat,
 }: CombatModalProps) {
-  if (!isOpen || opponents.length === 0) {
+  const [selectedTarget, setSelectedTarget] = useState<string | null>(null);
+
+  if (!isOpen || !gameState.combat || !gameState.combat.isActive) {
     return null;
   }
 
-  const playerStats = calculateStats(player);
+  const combat = gameState.combat;
+  const player = gameState.players[combat.attackerId];
+  const opponents = combat.defenders;
+
+  // Check if combat is over
+  const playerDefeated = player.hp === 0;
+  const opponentsDefeated = opponents.every(o => o.hp === 0);
+  const combatOver = playerDefeated || opponentsDefeated;
+
+  // Determine if fighting enemies
+  const isVsEnemy = opponents.length > 0 && 'attackBonus' in opponents[0];
+  const playerStats = calculateStats(player, isVsEnemy);
+
+  // Auto-select target if only one opponent
+  const needsTargetSelection = opponents.filter(o => o.hp > 0).length > 1;
+  const effectiveTarget = needsTargetSelection ? selectedTarget : opponents.find(o => o.hp > 0)?.id || null;
+
+  const handleAttack = () => {
+    if (needsTargetSelection && !effectiveTarget) {
+      alert('Please select a target!');
+      return;
+    }
+    onAttack(effectiveTarget || undefined);
+    setSelectedTarget(null); // Reset selection after attack
+  };
 
   return (
     <Modal
       isOpen={isOpen}
-      onClose={onClose || (() => {})}
+      onClose={combatOver ? onEndCombat : undefined}
       title="⚔️ Combat"
       size="large"
-      canClose={false}
+      canClose={combatOver}
     >
       <div className="combat-modal">
+        {/* Combat Arena */}
         <div className="combat-arena">
           {/* Player side */}
           <div className="combatant player-side">
@@ -107,23 +139,43 @@ export function CombatModal({
 
           {/* Opponent side */}
           <div className="combatant opponent-side">
-            {opponents.map((opponent, index) => {
+            {opponents.map((opponent) => {
               const isPlayerOpponent = isPlayer(opponent);
               const opponentStats = isPlayerOpponent
-                ? calculateStats(opponent)
-                : { attack: opponent.attackBonus + 1, defense: opponent.defenseBonus + 1 };
+                ? calculateStats(opponent as Player, false)
+                : {
+                    attack: (opponent as Enemy).attackBonus + 1,
+                    defense: (opponent as Enemy).defenseBonus + 1,
+                  };
+
+              const isDefeated = opponent.hp === 0;
+              const isSelected = needsTargetSelection && selectedTarget === opponent.id;
 
               return (
-                <div key={opponent.id || index} className="opponent-card">
-                  <h3>{isPlayerOpponent ? opponent.nickname : opponent.name}</h3>
+                <div
+                  key={opponent.id}
+                  className={`opponent-card ${isDefeated ? 'defeated' : ''} ${isSelected ? 'selected' : ''} ${
+                    needsTargetSelection && !isDefeated ? 'selectable' : ''
+                  }`}
+                  onClick={() => {
+                    if (needsTargetSelection && !isDefeated && !combatOver) {
+                      setSelectedTarget(opponent.id);
+                    }
+                  }}
+                >
+                  <h3>
+                    {isPlayerOpponent ? (opponent as Player).nickname : (opponent as Enemy).name}
+                    {isDefeated && ' 💀'}
+                  </h3>
                   {!isPlayerOpponent && (
-                    <Card card={opponent} type="enemy" isRevealed={true} />
+                    <Card card={opponent as Enemy} type="enemy" isRevealed={true} />
                   )}
                   <div className="combatant-stats">
                     <div className="stat-row">
                       <span className="stat-label">❤️ HP:</span>
                       <span className="stat-value">
-                        {opponent.hp}/{isPlayerOpponent ? opponent.maxHp : (opponent as Enemy).maxHp}
+                        {opponent.hp}/
+                        {isPlayerOpponent ? (opponent as Player).maxHp : (opponent as Enemy).maxHp}
                       </span>
                     </div>
                     <div className="stat-row">
@@ -135,28 +187,85 @@ export function CombatModal({
                       <span className="stat-value">{opponentStats.defense}</span>
                     </div>
                   </div>
+                  {isSelected && <div className="target-indicator">🎯 TARGET</div>}
                 </div>
               );
             })}
           </div>
         </div>
 
-        {/* Provisional message */}
-        <div className="combat-placeholder">
-          <p>⚠️ Combat system will be implemented in a future update.</p>
-          <p>For now, you can retreat to exit combat.</p>
-        </div>
+        {/* Combat Log */}
+        {combat.combatLog && combat.combatLog.length > 0 && (
+          <div className="combat-log">
+            <h4>Combat Log (Round {combat.currentRound})</h4>
+            <div className="combat-log-entries">
+              {combat.combatLog.slice(-3).map((entry, index) => (
+                <div key={index} className="combat-log-entry">
+                  <div className="log-round">Round {entry.round}</div>
+                  <div className="log-rolls">
+                    <div className="log-attacker">
+                      {entry.attackerRoll.entityName}: 🎲 ATK {entry.attackerRoll.attackDie}+
+                      {entry.attackerRoll.attackBonus} = {entry.attackerRoll.totalAttack}, DEF{' '}
+                      {entry.attackerRoll.defenseDie}+{entry.attackerRoll.defenseBonus} ={' '}
+                      {entry.attackerRoll.totalDefense}
+                    </div>
+                    {entry.defenderRolls.map((roll, i) => (
+                      <div key={i} className="log-defender">
+                        {roll.entityName}: 🎲 ATK {roll.attackDie}+{roll.attackBonus} ={' '}
+                        {roll.totalAttack}, DEF {roll.defenseDie}+{roll.defenseBonus} ={' '}
+                        {roll.totalDefense}
+                      </div>
+                    ))}
+                  </div>
+                  <div className="log-results">
+                    {entry.results.map((result, i) => (
+                      <div key={i} className={result.hpLost > 0 ? 'damage-dealt' : ''}>
+                        {result.hpLost > 0
+                          ? `💥 ${result.entityName} took ${result.hpLost} damage!`
+                          : `${result.entityName} defended successfully!`}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Target selection hint */}
+        {needsTargetSelection && !combatOver && (
+          <div className="target-hint">
+            <p>⚠️ Multiple enemies alive! Click on an enemy to select your target.</p>
+          </div>
+        )}
+
+        {/* Combat result message */}
+        {combatOver && (
+          <div className="combat-result">
+            {playerDefeated && <p className="defeat-message">💀 You were defeated!</p>}
+            {opponentsDefeated && <p className="victory-message">🏆 Victory! All enemies defeated!</p>}
+          </div>
+        )}
 
         {/* Combat actions */}
         <div className="combat-actions">
-          {onRetreat && (
-            <Button onClick={onRetreat} variant="danger">
-              Retreat (Move back 6 tiles)
+          {!combatOver && (
+            <>
+              <Button onClick={handleAttack} variant="primary">
+                ⚔️ Attack{needsTargetSelection ? ' Selected Target' : ''}
+              </Button>
+              {combat.canRetreat && (
+                <Button onClick={onRetreat} variant="danger">
+                  🏃 Retreat (Move back 6 tiles)
+                </Button>
+              )}
+            </>
+          )}
+          {combatOver && (
+            <Button onClick={onEndCombat} variant="primary">
+              Continue
             </Button>
           )}
-          <Button onClick={onClose} variant="secondary">
-            Close (Temporary)
-          </Button>
         </div>
       </div>
     </Modal>

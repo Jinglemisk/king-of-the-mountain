@@ -3,7 +3,7 @@
  * Main gameplay screen with board, inventory, combat, and turn management
  */
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import type { GameState, Item, Enemy, LuckCard, Tile } from '../types';
 import { Board } from '../components/game/Board';
 import { Card } from '../components/game/Card';
@@ -19,6 +19,9 @@ import {
   drawCards,
   drawLuckCard,
   drawEnemiesForTile,
+  startCombat,
+  executeCombatRound,
+  endCombat,
 } from '../state/gameSlice';
 
 interface GameScreenProps {
@@ -49,6 +52,13 @@ export function GameScreen({ gameState, playerId }: GameScreenProps) {
   // State for drag-and-drop
   const [draggedItem, setDraggedItem] = useState<{ item: Item; source: string } | null>(null);
 
+  // State for duel
+  const [showDuelModal, setShowDuelModal] = useState(false);
+
+  // State for PvP looting
+  const [showLootingModal, setShowLootingModal] = useState(false);
+  const [defeatedPlayerId, setDefeatedPlayerId] = useState<string | null>(null);
+
   // Get current player and turn info
   const currentPlayer = gameState.players[playerId];
   const currentTurnPlayerId = gameState.turnOrder[gameState.currentTurnIndex];
@@ -75,6 +85,21 @@ export function GameScreen({ gameState, playerId }: GameScreenProps) {
 
   // Provide default turn player for non-active games
   const safeTurnPlayer = currentTurnPlayer || currentPlayer;
+
+  /**
+   * Auto-wake unconscious players when their turn starts
+   */
+  useEffect(() => {
+    // Check if it's my turn and I'm unconscious
+    if (isMyTurn && !currentPlayer.isAlive && gameState.status === 'active') {
+      // Trigger wake-up after a short delay
+      const timer = setTimeout(() => {
+        handleUnconsciousPlayerTurn();
+      }, 500);
+
+      return () => clearTimeout(timer);
+    }
+  }, [isMyTurn, currentPlayer.isAlive, gameState.status]);
 
   /**
    * Helper: Normalize inventory array to always have correct number of slots
@@ -493,11 +518,12 @@ export function GameScreen({ gameState, playerId }: GameScreenProps) {
   /**
    * Handle card reveal modal close
    */
-  const handleCardRevealClose = () => {
+  const handleCardRevealClose = async () => {
     setShowCardReveal(false);
 
-    // If it was an enemy reveal, show combat modal
+    // If it was an enemy reveal, start combat
     if (revealCardType === 'enemy' && combatEnemies.length > 0) {
+      await startCombat(gameState.lobbyCode, playerId, combatEnemies, true);
       setShowCombat(true);
     }
 
@@ -616,33 +642,117 @@ export function GameScreen({ gameState, playerId }: GameScreenProps) {
   };
 
   /**
+   * Handle attack action in combat
+   * @param targetId - Optional target ID for multiple enemies
+   */
+  const handleCombatAttack = async (targetId?: string) => {
+    try {
+      await executeCombatRound(gameState.lobbyCode, targetId);
+    } catch (error) {
+      console.error('Combat round error:', error);
+    }
+  };
+
+  /**
    * Handle combat retreat
    */
   const handleCombatRetreat = async () => {
-    // Move back 6 tiles
-    const newPosition = Math.max(0, currentPlayer.position - 6);
-
-    await updateGameState(gameState.lobbyCode, {
-      [`players/${playerId}/position`]: newPosition,
-    });
-
-    await addLog(
-      gameState.lobbyCode,
-      'combat',
-      `${currentPlayer.nickname} retreated to tile ${newPosition}`,
-      playerId
-    );
-
+    await endCombat(gameState.lobbyCode, true);
     setShowCombat(false);
     setCombatEnemies([]);
   };
 
   /**
-   * Handle combat close (temporary until combat is implemented)
+   * Handle combat end (victory or defeat)
    */
-  const handleCombatClose = () => {
+  const handleCombatEnd = async () => {
+    // Check if it was PvP combat
+    const combat = gameState.combat;
+    if (combat && combat.defenders.length > 0) {
+      const firstDefender = combat.defenders[0];
+      const isPvP = 'nickname' in firstDefender;
+
+      if (isPvP) {
+        // Check if player won (defender defeated)
+        const defenderDefeated = combat.defenders.every(d => d.hp === 0);
+        const playerDefeated = currentPlayer.hp === 0;
+
+        if (defenderDefeated && !playerDefeated) {
+          // Player won - show looting interface
+          const defeatedId = combat.defenders[0].id;
+          setDefeatedPlayerId(defeatedId);
+          setShowCombat(false);
+          setShowLootingModal(true);
+          return;
+        }
+      }
+    }
+
+    // PvE combat or player lost - get loot and end
+    const loot = await endCombat(gameState.lobbyCode, false);
+
     setShowCombat(false);
     setCombatEnemies([]);
+
+    // If there's loot, try to add to inventory
+    if (loot.length > 0) {
+      const result = addItemToInventory(loot);
+
+      if (result.overflow.length > 0) {
+        setPendingItems(loot);
+        setShowInventoryFull(true);
+      } else {
+        await handleInventoryUpdate(result.inventory);
+      }
+    }
+  };
+
+  /**
+   * Handle looting an unconscious player on the same tile
+   * @param targetPlayerId - ID of unconscious player to loot
+   */
+  const handleLootPlayer = (targetPlayerId: string) => {
+    setDefeatedPlayerId(targetPlayerId);
+    setShowLootingModal(true);
+  };
+
+  /**
+   * Handle finishing looting from defeated player
+   */
+  const handleLootingFinish = async () => {
+    // Check if this was post-combat looting (combat state exists) or on-tile looting
+    if (gameState.combat && gameState.combat.isActive) {
+      // Post-combat looting - end combat
+      await endCombat(gameState.lobbyCode, false);
+    }
+    // For on-tile looting, just close modal (no combat to end)
+    setShowLootingModal(false);
+    setDefeatedPlayerId(null);
+  };
+
+  /**
+   * Handle unconscious player's turn - auto-wake them
+   */
+  const handleUnconsciousPlayerTurn = async () => {
+    // Wake up unconscious player - restore HP and set alive
+    await updateGameState(gameState.lobbyCode, {
+      [`players/${playerId}/hp`]: currentPlayer.maxHp,
+      [`players/${playerId}/isAlive`]: true,
+      [`players/${playerId}/actionTaken`]: null,
+    });
+
+    await addLog(
+      gameState.lobbyCode,
+      'system',
+      `💫 ${currentPlayer.nickname} woke up from unconsciousness with full HP!`,
+      playerId,
+      true
+    );
+
+    // Auto-end turn after waking
+    setTimeout(() => {
+      handleEndTurn();
+    }, 2000); // 2 second delay so players can see the wake-up message
   };
 
   /**
@@ -917,6 +1027,57 @@ export function GameScreen({ gameState, playerId }: GameScreenProps) {
   };
 
   /**
+   * Handle duel initiation with another player
+   * @param targetPlayerId - ID of player to duel
+   */
+  const handleDuel = async (targetPlayerId: string) => {
+    const targetPlayer = gameState.players[targetPlayerId];
+
+    // Check sanctuary tiles
+    const currentTile = gameState.tiles[currentPlayer.position];
+    if (currentTile.type === 'sanctuary') {
+      alert('Cannot duel on Sanctuary tiles!');
+      return;
+    }
+
+    // Start PvP combat (canRetreat = false for duels)
+    await startCombat(gameState.lobbyCode, playerId, [targetPlayer], false);
+    await updateGameState(gameState.lobbyCode, {
+      [`players/${playerId}/actionTaken`]: 'duel',
+    });
+    setShowDuelModal(false);
+    setShowCombat(true);
+  };
+
+  /**
+   * Get alive players on the same tile as current player (excluding self)
+   * Used for dueling
+   */
+  const getPlayersOnSameTile = (): typeof gameState.players => {
+    const playersHere: typeof gameState.players = {};
+    Object.entries(gameState.players).forEach(([pid, player]) => {
+      if (pid !== playerId && player.position === currentPlayer.position && player.isAlive) {
+        playersHere[pid] = player;
+      }
+    });
+    return playersHere;
+  };
+
+  /**
+   * Get unconscious players on the same tile as current player (excluding self)
+   * Used for looting
+   */
+  const getUnconsciousPlayersOnSameTile = (): typeof gameState.players => {
+    const unconsciousPlayers: typeof gameState.players = {};
+    Object.entries(gameState.players).forEach(([pid, player]) => {
+      if (pid !== playerId && player.position === currentPlayer.position && !player.isAlive) {
+        unconsciousPlayers[pid] = player;
+      }
+    });
+    return unconsciousPlayers;
+  };
+
+  /**
    * Render action buttons for current player's turn
    */
   const renderActions = () => {
@@ -928,7 +1089,23 @@ export function GameScreen({ gameState, playerId }: GameScreenProps) {
       );
     }
 
+    // If player is unconscious, show waking up message
+    if (!currentPlayer.isAlive) {
+      return (
+        <div className="turn-info unconscious-wake">
+          <h3>💫 Waking Up...</h3>
+          <p>You are regaining consciousness and will be restored to full HP!</p>
+        </div>
+      );
+    }
+
     const hasActed = currentPlayer.actionTaken !== null && currentPlayer.actionTaken !== undefined;
+    const playersOnSameTile = getPlayersOnSameTile();
+    const unconsciousPlayersOnTile = getUnconsciousPlayersOnSameTile();
+    const canDuel = Object.keys(playersOnSameTile).length > 0 && !hasActed;
+    const canLoot = Object.keys(unconsciousPlayersOnTile).length > 0;
+    const currentTile = gameState.tiles[currentPlayer.position];
+    const isSanctuary = currentTile.type === 'sanctuary';
 
     return (
       <div className="action-buttons">
@@ -940,9 +1117,24 @@ export function GameScreen({ gameState, playerId }: GameScreenProps) {
           <Button onClick={handleSleep} variant="secondary" disabled={hasActed}>
             😴 Sleep (Restore HP)
           </Button>
-          <Button onClick={() => {}} variant="secondary" disabled>
-            ⚔️ Duel (Coming soon)
+          <Button
+            onClick={() => setShowDuelModal(true)}
+            variant="secondary"
+            disabled={!canDuel || isSanctuary}
+          >
+            ⚔️ Duel {isSanctuary ? '(Sanctuary)' : canDuel ? '' : '(No players)'}
           </Button>
+          {canLoot && (
+            <Button
+              onClick={() => {
+                const firstUnconsciousId = Object.keys(unconsciousPlayersOnTile)[0];
+                handleLootPlayer(firstUnconsciousId);
+              }}
+              variant="secondary"
+            >
+              💰 Loot Unconscious Player
+            </Button>
+          )}
           <Button onClick={() => {}} variant="secondary" disabled>
             🤝 Trade (Coming soon)
           </Button>
@@ -1108,10 +1300,10 @@ export function GameScreen({ gameState, playerId }: GameScreenProps) {
       {/* Combat Modal */}
       <CombatModal
         isOpen={showCombat}
-        player={currentPlayer}
-        opponents={combatEnemies}
+        gameState={gameState}
+        onAttack={handleCombatAttack}
         onRetreat={handleCombatRetreat}
-        onClose={handleCombatClose}
+        onEndCombat={handleCombatEnd}
       />
 
       {/* Inventory Full Modal */}
@@ -1122,6 +1314,172 @@ export function GameScreen({ gameState, playerId }: GameScreenProps) {
         onDiscard={handleInventoryDiscard}
         maxSlots={currentPlayer.inventory ? currentPlayer.inventory.length : 4}
       />
+
+      {/* Duel Target Selection Modal */}
+      <Modal
+        isOpen={showDuelModal}
+        onClose={() => setShowDuelModal(false)}
+        title="⚔️ Choose Duel Target"
+        size="medium"
+      >
+        <div className="duel-target-selection">
+          <p>Select a player to duel:</p>
+          <div className="duel-targets">
+            {Object.entries(getPlayersOnSameTile()).map(([pid, player]) => (
+              <Button
+                key={pid}
+                onClick={() => handleDuel(pid)}
+                variant="danger"
+                fullWidth
+              >
+                ⚔️ Duel {player.nickname} (HP: {player.hp}/{player.maxHp})
+              </Button>
+            ))}
+          </div>
+          {Object.keys(getPlayersOnSameTile()).length === 0 && (
+            <p>No players on this tile to duel.</p>
+          )}
+        </div>
+      </Modal>
+
+      {/* PvP Looting Modal */}
+      {showLootingModal && defeatedPlayerId && (
+        <Modal
+          isOpen={showLootingModal}
+          onClose={handleLootingFinish}
+          title={gameState.combat?.isActive ? "🏆 Victory! Loot the Defeated" : "💰 Loot Unconscious Player"}
+          size="large"
+          canClose={true}
+        >
+          <div className="looting-modal">
+            <p className="looting-message">
+              {gameState.combat?.isActive
+                ? `You defeated ${gameState.players[defeatedPlayerId].nickname}! You may take any items from their inventory or equipment.`
+                : `${gameState.players[defeatedPlayerId].nickname} is unconscious! You may take any items from their inventory or equipment.`
+              }
+            </p>
+            <div className="looting-interface">
+              <div className="looting-section">
+                <h4>🎒 Defeated Player's Inventory</h4>
+                <div className="looting-items">
+                  <div className="looting-equipment">
+                    <h5>Equipped:</h5>
+                    {gameState.players[defeatedPlayerId].equipment.holdable1 && (
+                      <div className="loot-item">
+                        <Card
+                          card={gameState.players[defeatedPlayerId].equipment.holdable1!}
+                          type="treasure"
+                        />
+                        <Button
+                          onClick={() => {
+                            const item = gameState.players[defeatedPlayerId].equipment.holdable1;
+                            if (item) {
+                              const result = addItemToInventory([item]);
+                              if (result.overflow.length === 0) {
+                                handleInventoryUpdate(result.inventory);
+                                updateGameState(gameState.lobbyCode, {
+                                  [`players/${defeatedPlayerId}/equipment/holdable1`]: null,
+                                });
+                              }
+                            }
+                          }}
+                          variant="primary"
+                        >
+                          Take
+                        </Button>
+                      </div>
+                    )}
+                    {gameState.players[defeatedPlayerId].equipment.holdable2 && (
+                      <div className="loot-item">
+                        <Card
+                          card={gameState.players[defeatedPlayerId].equipment.holdable2!}
+                          type="treasure"
+                        />
+                        <Button
+                          onClick={() => {
+                            const item = gameState.players[defeatedPlayerId].equipment.holdable2;
+                            if (item) {
+                              const result = addItemToInventory([item]);
+                              if (result.overflow.length === 0) {
+                                handleInventoryUpdate(result.inventory);
+                                updateGameState(gameState.lobbyCode, {
+                                  [`players/${defeatedPlayerId}/equipment/holdable2`]: null,
+                                });
+                              }
+                            }
+                          }}
+                          variant="primary"
+                        >
+                          Take
+                        </Button>
+                      </div>
+                    )}
+                    {gameState.players[defeatedPlayerId].equipment.wearable && (
+                      <div className="loot-item">
+                        <Card
+                          card={gameState.players[defeatedPlayerId].equipment.wearable!}
+                          type="treasure"
+                        />
+                        <Button
+                          onClick={() => {
+                            const item = gameState.players[defeatedPlayerId].equipment.wearable;
+                            if (item) {
+                              const result = addItemToInventory([item]);
+                              if (result.overflow.length === 0) {
+                                handleInventoryUpdate(result.inventory);
+                                updateGameState(gameState.lobbyCode, {
+                                  [`players/${defeatedPlayerId}/equipment/wearable`]: null,
+                                });
+                              }
+                            }
+                          }}
+                          variant="primary"
+                        >
+                          Take
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                  <div className="looting-carried">
+                    <h5>Carried:</h5>
+                    {gameState.players[defeatedPlayerId].inventory.map((item, index) => {
+                      if (!item) return null;
+                      return (
+                        <div key={index} className="loot-item">
+                          <Card card={item} type="treasure" />
+                          <Button
+                            onClick={() => {
+                              const result = addItemToInventory([item]);
+                              if (result.overflow.length === 0) {
+                                handleInventoryUpdate(result.inventory);
+                                const newInventory = [
+                                  ...gameState.players[defeatedPlayerId].inventory,
+                                ];
+                                newInventory[index] = null;
+                                updateGameState(gameState.lobbyCode, {
+                                  [`players/${defeatedPlayerId}/inventory`]: newInventory,
+                                });
+                              }
+                            }}
+                            variant="primary"
+                          >
+                            Take
+                          </Button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div className="looting-actions">
+              <Button onClick={handleLootingFinish} variant="primary" fullWidth>
+                Finish Looting
+              </Button>
+            </div>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }

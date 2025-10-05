@@ -338,21 +338,40 @@ When a player triggers a Trap item and then enters combat on the same turn (e.g.
    - Logs for moves, card draws, and system messages
    - **Missing**: Combat result logs (combat not implemented yet)
 
-### 🔴 Not Implemented
+### ✅ Fully Implemented (NEW!)
 
-1. **Combat System (PvE & PvP)** - Provisional modal exists, combat logic needed
-   - Trap effect: Skip first combat round when trap triggered on enemy tile
-2. **Item Effects (special abilities)** - Most items defined, some activation logic needed
-   - ✅ Trap placement and triggering (COMPLETED)
-   - ⏳ Luck Charm, Beer, Rage Potion, Fairy Dust, etc. (TODO)
-3. **Luck Card Effects (all unique effects)** - Cards drawn and displayed, effect logic needed
-4. **Class Special Abilities**
+1. **Combat System (PvE & PvP)** ✅
+   - ✅ Turn-based d6 dice rolling for attack and defense
+   - ✅ Class-specific combat bonuses (Hunter, Gladiator, Warden, Guard)
+   - ✅ Equipment bonuses applied correctly
+   - ✅ Multiple enemy targeting with target selection UI
+   - ✅ Retreat functionality (move back 6 tiles)
+   - ✅ Victory/defeat handling
+   - ✅ Enemy loot drops (50-80% based on tier)
+   - ✅ Combat log display with round-by-round results
+   - ✅ Monk revival ability (once per game when HP drops to 0)
+   - ✅ Trap effect: Skip first attack round when trapped on enemy tile
+   - ✅ PvP duel initiation system
+   - ✅ PvP looting interface for winners
+
+2. **Class Special Abilities** ✅
    - ✅ Scout: Trap immunity (COMPLETED)
    - ✅ Porter: +1 inventory slot (COMPLETED)
-   - ⏳ Hunter, Gladiator, Warden, Guard, Monk (TODO)
-5. **Trading System**
-6. **Chat System**
-7. **Animations & Sound Effects**
+   - ✅ Hunter: +1 Attack vs Enemies (COMPLETED)
+   - ✅ Gladiator: +1 Attack vs Players (COMPLETED)
+   - ✅ Warden: +1 Defense vs Enemies (COMPLETED)
+   - ✅ Guard: +1 Defense vs Players (COMPLETED)
+   - ✅ Monk: One-time revival at 0 HP (COMPLETED)
+
+### 🔴 Not Implemented
+
+1. **Item Effects (special abilities)** - Most items defined, some activation logic needed
+   - ✅ Trap placement and triggering (COMPLETED)
+   - ⏳ Luck Charm, Beer, Rage Potion, Fairy Dust, etc. (TODO)
+2. **Luck Card Effects (all unique effects)** - Cards drawn and displayed, effect logic needed
+3. **Trading System**
+4. **Chat System**
+5. **Animations & Sound Effects**
 
 ---
 
@@ -535,6 +554,85 @@ const enemies = await drawEnemiesForTile('ABC123', 2); // Might return 2 T1 or 1
 **Location**: `src/state/gameSlice.ts:321`
 **Description**: Creates a log entry object with timestamp and unique ID
 **Returns**: LogEntry object
+
+#### `startCombat(lobbyCode, attackerId, defenders, canRetreat): Promise<void>`
+**Location**: `src/state/gameSlice.ts:559`
+**Description**: Initialize combat state between a player and enemies or other players
+**Parameters**:
+- `lobbyCode` - The lobby code
+- `attackerId` - ID of the attacking player
+- `defenders` - Array of Enemy or Player objects being fought
+- `canRetreat` - Whether retreat is allowed (true for PvE, false for PvP duels)
+**Side Effects**: Creates CombatState in Firebase, adds combat log entry
+**Example**:
+```typescript
+// Start PvE combat
+await startCombat('ABC123', playerId, enemies, true);
+
+// Start PvP duel (no retreat)
+await startCombat('ABC123', playerId, [targetPlayer], false);
+```
+
+#### `executeCombatRound(lobbyCode, targetId?): Promise<CombatLogEntry>`
+**Location**: `src/state/gameSlice.ts:601`
+**Description**: Execute a single round of combat with dice rolls and damage calculation
+**Parameters**:
+- `lobbyCode` - The lobby code
+- `targetId` - (Optional) ID of specific target to attack (for multiple enemies)
+**Returns**: Promise resolving to CombatLogEntry with round results
+**Side Effects**:
+- Rolls d6 for attack/defense for all combatants
+- Applies class bonuses (Hunter/Gladiator/Warden/Guard) and equipment bonuses
+- Calculates damage (1 HP if attack > defense)
+- Updates HP in Firebase
+- Checks Monk revival ability
+- Handles trap effect (skip first attack if player trapped)
+**Example**:
+```typescript
+// Attack in single-enemy combat
+await executeCombatRound('ABC123');
+
+// Attack specific enemy in multi-enemy combat
+await executeCombatRound('ABC123', enemy2.id);
+```
+
+#### `endCombat(lobbyCode, retreated): Promise<Item[]>`
+**Location**: `src/state/gameSlice.ts:810`
+**Description**: End combat and handle victory/defeat outcomes
+**Parameters**:
+- `lobbyCode` - The lobby code
+- `retreated` - True if player retreated, false if combat naturally ended
+**Returns**: Promise resolving to array of loot items (for PvE victory)
+**Side Effects**:
+- If retreated: Move player back 6 tiles, clear combat state
+- If player defeated (PvE): Move back 1 tile, restore HP, Sleep action
+- If player won (PvE): Roll for enemy loot, clear combat state
+- If PvP: Restore loser's HP, Sleep action
+- Clears combat state from Firebase
+**Example**:
+```typescript
+// Retreat from combat
+await endCombat('ABC123', true);
+
+// End combat naturally (victory or defeat)
+const loot = await endCombat('ABC123', false);
+```
+
+#### `rollEnemyLoot(lobbyCode, enemyTier): Promise<Item[]>`
+**Location**: `src/state/gameSlice.ts:903`
+**Description**: Roll for loot drops from defeated enemies
+**Parameters**:
+- `lobbyCode` - The lobby code
+- `enemyTier` - Tier of defeated enemy (1, 2, or 3)
+**Returns**: Promise resolving to array of dropped items
+**Logic**:
+- Tier 1: 50% chance → 1× T1 treasure
+- Tier 2: 70% → 1× T2, 15% → 1× T1, 15% → nothing
+- Tier 3: 80% → 1× T3, 20% → 1× T2
+**Example**:
+```typescript
+const loot = await rollEnemyLoot('ABC123', 3); // Roll for T3 enemy loot
+```
 
 ---
 
@@ -1320,7 +1418,96 @@ This would require adding Firebase Authentication, which is currently not implem
 
 ## Recent Updates
 
-### Tile Resolution & Card Drawing System (Latest)
+### Complete Combat System Implementation (Latest - December 2024)
+
+**What was implemented:**
+
+1. **Core Combat Functions** (`src/state/gameSlice.ts`)
+   - `startCombat()` - Initialize combat state with attackers and defenders
+   - `executeCombatRound()` - Execute combat rounds with d6 dice rolls
+   - `endCombat()` - Handle victory/defeat and loot distribution
+   - `rollEnemyLoot()` - Roll for enemy loot drops based on tier
+   - `getClassCombatBonuses()` - Calculate class-specific combat bonuses
+   - `getEquipmentBonuses()` - Calculate equipment bonuses
+
+2. **Interactive Combat Modal** (`src/components/game/CombatModal.tsx`)
+   - Fully functional combat UI with attack button
+   - Multiple enemy targeting with click-to-select interface
+   - Round-by-round combat log display
+   - Real-time HP updates
+   - Victory/defeat screens
+   - Retreat button functionality
+   - Visual feedback for selected targets
+   - Defeated enemy visual indicators
+
+3. **Class-Specific Combat Bonuses**
+   - Hunter: +1 Attack vs Enemies (PvE)
+   - Gladiator: +1 Attack vs Players (PvP)
+   - Warden: +1 Defense vs Enemies (PvE)
+   - Guard: +1 Defense vs Players (PvP)
+   - Monk: One-time revival when HP drops to 0
+
+4. **Trap Combat Integration**
+   - Players trapped on enemy tiles skip their first attack round
+   - Can still defend but cannot attack for round 1
+   - Trap flag cleared after first round
+
+5. **PvP Duel System** (`src/screens/GameScreen.tsx`)
+   - Duel button appears when players on same tile
+   - Sanctuary tiles prevent duels
+   - Target selection modal for choosing duel opponent
+   - Duel action tracking
+   - No retreat allowed in PvP duels
+
+6. **PvP Looting Interface**
+   - Winners can take items from defeated players
+   - Shows defeated player's equipment and inventory
+   - Click "Take" buttons to loot specific items
+   - Automatic inventory management for looted items
+   - "Finish Looting" button to end combat
+
+7. **Enemy Loot System**
+   - Tier 1: 50% → 1× T1 treasure
+   - Tier 2: 70% → 1× T2, 15% → 1× T1, 15% → nothing
+   - Tier 3: 80% → 1× T3, 20% → 1× T2
+   - Loot automatically added to inventory with overflow handling
+
+8. **Combat CSS Styling** (`src/index.css`)
+   - Medieval-themed combat arena
+   - Animated target indicators
+   - Combat log styling with round-by-round details
+   - Victory/defeat messages
+   - Duel target selection UI
+   - Looting interface styles
+
+**Combat Flow:**
+1. Player lands on enemy tile or initiates duel
+2. `startCombat()` creates CombatState in Firebase
+3. CombatModal displays with interactive UI
+4. Player clicks Attack button (selects target if multiple enemies)
+5. `executeCombatRound()` rolls dice, applies bonuses, calculates damage
+6. HP updates in real-time, combat log shows results
+7. Combat continues until victory, defeat, or retreat
+8. `endCombat()` handles outcome, distributes loot
+9. Looting interface shown for PvP victories
+
+**Testing checklist:**
+- ✅ PvE combat with single enemy
+- ✅ PvE combat with multiple enemies (target selection)
+- ✅ Class bonuses applied correctly
+- ✅ Equipment bonuses calculated
+- ✅ Retreat functionality
+- ✅ Enemy loot drops
+- ✅ Victory/defeat handling
+- ✅ Monk revival ability
+- ✅ Trap effect in combat
+- ✅ PvP duel initiation
+- ✅ PvP looting interface
+- ✅ Sanctuary tile duel prevention
+
+---
+
+### Tile Resolution & Card Drawing System (November 2024)
 
 **What was implemented:**
 
