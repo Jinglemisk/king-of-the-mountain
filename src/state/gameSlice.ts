@@ -8,10 +8,8 @@ import { database, generateLobbyCode } from '../lib/firebase';
 import type {
   GameState,
   Player,
-  Tile,
   LogEntry,
   PlayerClass,
-  TileType,
   Enemy,
   CombatState,
   CombatRoll,
@@ -21,6 +19,7 @@ import type {
 } from '../types';
 import { buildEnemyDeck, getEnemyComposition } from '../data/enemies';
 import { buildTreasureDeck, buildLuckDeck } from '../data/cards';
+import { generateBoardTiles } from '../data/BoardLayout';
 
 /**
  * Create a new game lobby with initial state
@@ -64,7 +63,7 @@ export async function createGameLobby(
     },
     turnOrder: [],
     currentTurnIndex: 0,
-    tiles: generateTiles(),
+    tiles: generateBoardTiles(),
     enemyDeck1: [],
     enemyDeck2: [],
     enemyDeck3: [],
@@ -294,37 +293,8 @@ export async function addLog(
 // HELPER FUNCTIONS
 // ============================================================================
 
-/**
- * Generate the 20 tiles for the game board
- * @returns Array of 20 Tile objects
- */
-function generateTiles(): Tile[] {
-  // Define tile types in order (0 = start, 19 = final)
-  const tileTypes: TileType[] = [
-    'start',      // 0
-    'treasure1',  // 1
-    'enemy1',     // 2
-    'luck',       // 3
-    'enemy1',     // 4
-    'treasure2',  // 5
-    'enemy2',     // 6
-    'sanctuary',  // 7
-    'treasure1',  // 8
-    'enemy2',     // 9
-    'luck',       // 10
-    'enemy2',     // 11
-    'treasure2',  // 12
-    'enemy3',     // 13
-    'luck',       // 14
-    'treasure3',  // 15
-    'enemy3',     // 16
-    'sanctuary',  // 17
-    'treasure3',  // 18
-    'final',      // 19
-  ];
-
-  return tileTypes.map((type, id) => ({ id, type }));
-}
+// Note: Board tile generation has been moved to /src/data/BoardLayout.ts
+// Use generateBoardTiles() from BoardLayout for board generation
 
 /**
  * Create a log entry

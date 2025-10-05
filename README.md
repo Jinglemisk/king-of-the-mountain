@@ -202,7 +202,13 @@ Edit `src/data/cards.ts`:
 
 ### Modifying Board Layout
 
-Edit `generateTiles()` in `src/state/gameSlice.ts` to change the 20-tile layout.
+Edit `src/data/BoardLayout.ts` to easily customize:
+- Total number of tiles (default: 20)
+- Tile type distribution (treasure, luck, sanctuary)
+- Board pattern and layout
+- Sanctuary tile positions
+
+The centralized configuration makes it simple to adjust the board without touching game logic.
 
 ## 📜 License
 

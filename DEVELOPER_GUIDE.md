@@ -544,11 +544,16 @@ const luckCard = await drawLuckCard('ABC123');
 const enemies = await drawEnemiesForTile('ABC123', 2); // Might return 2 T1 or 1 T2
 ```
 
-#### `generateTiles(): Tile[]` (private)
-**Location**: `src/state/gameSlice.ts:285`
-**Description**: Generates the 20 tiles for the game board in predetermined order
-**Returns**: Array of 20 Tile objects
-**Note**: This is called automatically by `createGameLobby()`
+#### `generateBoardTiles(): Tile[]`
+**Location**: `src/data/BoardLayout.ts`
+**Description**: Generates the game board tiles from centralized configuration
+**Returns**: Array of Tile objects based on BOARD_PATTERN
+**Configuration**: Edit `src/data/BoardLayout.ts` to customize:
+  - `BOARD_CONFIG` - Total tiles, start/final positions, sanctuary locations
+  - `TILE_DISTRIBUTION` - Count of each tile type
+  - `BOARD_PATTERN` - Complete board layout pattern
+**Validation**: Automatically validates configuration before generation
+**Note**: This replaces the old hardcoded `generateTiles()` function
 
 #### `createLogEntry(type, message, isImportant?, playerId?): LogEntry` (private)
 **Location**: `src/state/gameSlice.ts:321`
