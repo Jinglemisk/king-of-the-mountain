@@ -1343,7 +1343,7 @@ export function GameScreen({ gameState, playerId }: GameScreenProps) {
       </Modal>
 
       {/* PvP Looting Modal */}
-      {showLootingModal && defeatedPlayerId && (
+      {showLootingModal && defeatedPlayerId && gameState.players[defeatedPlayerId] && (
         <Modal
           isOpen={showLootingModal}
           onClose={handleLootingFinish}
@@ -1354,8 +1354,8 @@ export function GameScreen({ gameState, playerId }: GameScreenProps) {
           <div className="looting-modal">
             <p className="looting-message">
               {gameState.combat?.isActive
-                ? `You defeated ${gameState.players[defeatedPlayerId].nickname}! You may take any items from their inventory or equipment.`
-                : `${gameState.players[defeatedPlayerId].nickname} is unconscious! You may take any items from their inventory or equipment.`
+                ? `You defeated ${gameState.players[defeatedPlayerId]?.nickname}! You may take any items from their inventory or equipment.`
+                : `${gameState.players[defeatedPlayerId]?.nickname} is unconscious! You may take any items from their inventory or equipment.`
               }
             </p>
             <div className="looting-interface">
@@ -1364,15 +1364,15 @@ export function GameScreen({ gameState, playerId }: GameScreenProps) {
                 <div className="looting-items">
                   <div className="looting-equipment">
                     <h5>Equipped:</h5>
-                    {gameState.players[defeatedPlayerId].equipment.holdable1 && (
+                    {gameState.players[defeatedPlayerId].equipment?.holdable1 && (
                       <div className="loot-item">
                         <Card
-                          card={gameState.players[defeatedPlayerId].equipment.holdable1!}
+                          card={gameState.players[defeatedPlayerId].equipment?.holdable1!}
                           type="treasure"
                         />
                         <Button
                           onClick={() => {
-                            const item = gameState.players[defeatedPlayerId].equipment.holdable1;
+                            const item = gameState.players[defeatedPlayerId].equipment?.holdable1;
                             if (item) {
                               const result = addItemToInventory([item]);
                               if (result.overflow.length === 0) {
@@ -1389,15 +1389,15 @@ export function GameScreen({ gameState, playerId }: GameScreenProps) {
                         </Button>
                       </div>
                     )}
-                    {gameState.players[defeatedPlayerId].equipment.holdable2 && (
+                    {gameState.players[defeatedPlayerId].equipment?.holdable2 && (
                       <div className="loot-item">
                         <Card
-                          card={gameState.players[defeatedPlayerId].equipment.holdable2!}
+                          card={gameState.players[defeatedPlayerId].equipment?.holdable2!}
                           type="treasure"
                         />
                         <Button
                           onClick={() => {
-                            const item = gameState.players[defeatedPlayerId].equipment.holdable2;
+                            const item = gameState.players[defeatedPlayerId].equipment?.holdable2;
                             if (item) {
                               const result = addItemToInventory([item]);
                               if (result.overflow.length === 0) {
@@ -1414,15 +1414,15 @@ export function GameScreen({ gameState, playerId }: GameScreenProps) {
                         </Button>
                       </div>
                     )}
-                    {gameState.players[defeatedPlayerId].equipment.wearable && (
+                    {gameState.players[defeatedPlayerId].equipment?.wearable && (
                       <div className="loot-item">
                         <Card
-                          card={gameState.players[defeatedPlayerId].equipment.wearable!}
+                          card={gameState.players[defeatedPlayerId].equipment?.wearable!}
                           type="treasure"
                         />
                         <Button
                           onClick={() => {
-                            const item = gameState.players[defeatedPlayerId].equipment.wearable;
+                            const item = gameState.players[defeatedPlayerId].equipment?.wearable;
                             if (item) {
                               const result = addItemToInventory([item]);
                               if (result.overflow.length === 0) {
@@ -1442,7 +1442,7 @@ export function GameScreen({ gameState, playerId }: GameScreenProps) {
                   </div>
                   <div className="looting-carried">
                     <h5>Carried:</h5>
-                    {gameState.players[defeatedPlayerId].inventory.map((item, index) => {
+                    {gameState.players[defeatedPlayerId].inventory?.map((item, index) => {
                       if (!item) return null;
                       return (
                         <div key={index} className="loot-item">
