@@ -6,6 +6,7 @@
 import type { GameState, Player, Item, Enemy, LuckCard, Tile } from '../../../types';
 import {
   updateGameState,
+  updateGameStateWithLog,
   addLog,
   rollDice,
   drawCards,
@@ -95,11 +96,14 @@ export function useTurnActions({
       const tier = parseInt(tileType.replace('treasure', '')) as 1 | 2 | 3;
       const treasures = await drawCards(gameState.lobbyCode, 'treasure', tier, 1);
 
+      // Log treasure discovery (using current logs to avoid extra read)
       await addLog(
         gameState.lobbyCode,
         'action',
         `${currentPlayer.nickname} found a Tier ${tier} treasure!`,
-        playerId
+        playerId,
+        false,
+        gameState.logs
       );
 
       // Show treasure in reveal modal
@@ -115,12 +119,14 @@ export function useTurnActions({
     if (tileType === 'luck') {
       const luckCard = await drawLuckCard(gameState.lobbyCode);
 
+      // Log luck card draw (using current logs to avoid extra read)
       await addLog(
         gameState.lobbyCode,
         'action',
         `${currentPlayer.nickname} drew a Luck Card: ${luckCard.name}`,
         playerId,
-        true
+        true,
+        gameState.logs
       );
 
       // Show Luck Card in reveal modal
@@ -138,7 +144,7 @@ export function useTurnActions({
           playerId,
           value: luckCard.value,
           updateGameState: (updates) => updateGameState(gameState.lobbyCode, updates),
-          addLog: (type, message, pid, important) => addLog(gameState.lobbyCode, type, message, pid, important),
+          addLog: (type, message, pid, important) => addLog(gameState.lobbyCode, type, message, pid, important, gameState.logs),
           drawCards: (deckType, tier, count) => drawCards(gameState.lobbyCode, deckType, tier, count),
           drawLuckCard: () => drawLuckCard(gameState.lobbyCode),
           startCombat: (attackerId, defenders, canRetreat) => startCombat(gameState.lobbyCode, attackerId, defenders, canRetreat),
@@ -229,15 +235,16 @@ export function useTurnActions({
       ambushOwnerId: playerId,
     };
 
-    await updateGameState(gameState.lobbyCode, {
-      [`players/${playerId}/tempEffects`]: updatedTempEffects,
-      tiles: updatedTiles,
-    });
-
-    await addLog(
+    // Update tile and log in single operation
+    await updateGameStateWithLog(
       gameState.lobbyCode,
+      {
+        [`players/${playerId}/tempEffects`]: updatedTempEffects,
+        tiles: updatedTiles,
+      },
       'action',
       `🃏 ${currentPlayer.nickname} placed an Ambush on tile ${currentPlayer.position}!`,
+      gameState.logs,
       playerId,
       true
     );
@@ -409,18 +416,17 @@ export function useTurnActions({
       newPosition = 19;
     }
 
-    // Update player position and mark action as taken
-    await updateGameState(gameState.lobbyCode, {
-      [`players/${playerId}/position`]: newPosition,
-      [`players/${playerId}/actionTaken`]: 'move',
-    });
-
-    // Log the move
+    // Update player position, mark action as taken, and log in single operation
     const modifierText = movementModifier !== 0 ? ` (${movementModifier > 0 ? '+' : ''}${movementModifier} modifier)` : '';
-    await addLog(
+    await updateGameStateWithLog(
       gameState.lobbyCode,
+      {
+        [`players/${playerId}/position`]: newPosition,
+        [`players/${playerId}/actionTaken`]: 'move',
+      },
       'action',
       `${currentPlayer.nickname} rolled ${roll}${modifierText} and moved to tile ${newPosition}`,
+      gameState.logs,
       playerId
     );
 
@@ -439,16 +445,16 @@ export function useTurnActions({
    * Handle player choosing Sleep action
    */
   const handleSleep = async () => {
-    // Restore to full HP and mark action as taken
-    await updateGameState(gameState.lobbyCode, {
-      [`players/${playerId}/hp`]: currentPlayer.maxHp,
-      [`players/${playerId}/actionTaken`]: 'sleep',
-    });
-
-    await addLog(
+    // Restore to full HP, mark action as taken, and log in single operation
+    await updateGameStateWithLog(
       gameState.lobbyCode,
+      {
+        [`players/${playerId}/hp`]: currentPlayer.maxHp,
+        [`players/${playerId}/actionTaken`]: 'sleep',
+      },
       'action',
       `${currentPlayer.nickname} rested and restored to full HP`,
+      gameState.logs,
       playerId
     );
   };
@@ -465,19 +471,27 @@ export function useTurnActions({
     const nextPlayerId = gameState.turnOrder[nextIndex];
     const nextPlayer = nextPlayerId ? gameState.players[nextPlayerId] : null;
 
-    await updateGameState(gameState.lobbyCode, {
-      currentTurnIndex: nextIndex,
-      [`players/${playerId}/actionTaken`]: null,
-      [`players/${playerId}/tempEffects`]: updatedTempEffects,
-      [`players/${nextPlayerId}/actionTaken`]: null,
-    });
-
+    // Update turn state and log in single operation
     if (nextPlayer) {
-      await addLog(
+      await updateGameStateWithLog(
         gameState.lobbyCode,
+        {
+          currentTurnIndex: nextIndex,
+          [`players/${playerId}/actionTaken`]: null,
+          [`players/${playerId}/tempEffects`]: updatedTempEffects,
+          [`players/${nextPlayerId}/actionTaken`]: null,
+        },
         'system',
-        `${safeTurnPlayer.nickname}'s turn ended. It's now ${nextPlayer.nickname}'s turn.`
+        `${safeTurnPlayer.nickname}'s turn ended. It's now ${nextPlayer.nickname}'s turn.`,
+        gameState.logs
       );
+    } else {
+      await updateGameState(gameState.lobbyCode, {
+        currentTurnIndex: nextIndex,
+        [`players/${playerId}/actionTaken`]: null,
+        [`players/${playerId}/tempEffects`]: updatedTempEffects,
+        [`players/${nextPlayerId}/actionTaken`]: null,
+      });
     }
   };
 
@@ -586,7 +600,7 @@ export function useTurnActions({
       playerId,
       itemId,
       updateGameState: (updates) => updateGameState(gameState.lobbyCode, updates),
-      addLog: (type, message, pid, important) => addLog(gameState.lobbyCode, type, message, pid, important),
+      addLog: (type, message, pid, important) => addLog(gameState.lobbyCode, type, message, pid, important, gameState.logs),
       drawCards: (deckType, tier, count) => drawCards(gameState.lobbyCode, deckType, tier, count),
       drawLuckCard: () => drawLuckCard(gameState.lobbyCode),
       startCombat: (attackerId, defenders, canRetreat) => startCombat(gameState.lobbyCode, attackerId, defenders, canRetreat),
@@ -617,23 +631,21 @@ export function useTurnActions({
       // Apply offset
       const newPosition = Math.max(0, Math.min(19, currentPosition + offset));
 
-      // Update position
-      await updateGameState(gameState.lobbyCode, {
-        [`players/${playerId}/position`]: newPosition,
-      });
-
       // Remove Instinct tempEffect
       const updatedTempEffects = (currentPlayer.tempEffects || []).filter(
         effect => effect.type !== 'instinct'
       );
-      await updateGameState(gameState.lobbyCode, {
-        [`players/${playerId}/tempEffects`]: updatedTempEffects,
-      });
 
-      await addLog(
+      // Update position, remove effect, and log in single operation
+      await updateGameStateWithLog(
         gameState.lobbyCode,
+        {
+          [`players/${playerId}/position`]: newPosition,
+          [`players/${playerId}/tempEffects`]: updatedTempEffects,
+        },
         'action',
         `🃏 ${currentPlayer.nickname} used Instinct and moved ${offset > 0 ? '+' : ''}${offset} tile to position ${newPosition}!`,
+        gameState.logs,
         playerId,
         true
       );

@@ -4,7 +4,7 @@
  */
 
 import type { GameState, Item, Player } from '../../../types';
-import { updateGameState, addLog } from '../../../state/gameSlice';
+import { updateGameState, updateGameStateWithLog, addLog } from '../../../state/gameSlice';
 import { normalizeInventory } from '../../../utils/inventory';
 
 interface UseEquipmentManagementParams {
@@ -63,24 +63,15 @@ export function useEquipmentManagement({
     // Check if the equipment slot is already occupied
     const currentlyEquippedItem = equipment[equipmentSlot];
 
+    let logMessage: string;
     // If slot is occupied, swap items (move equipped item to inventory)
     if (currentlyEquippedItem) {
       inventory[inventoryIndex] = currentlyEquippedItem;
-      await addLog(
-        gameState.lobbyCode,
-        'action',
-        `${currentPlayer.nickname} swapped ${currentlyEquippedItem.name} with ${item.name} in ${equipmentSlot === 'wearable' ? 'Armor' : equipmentSlot === 'holdable1' ? 'Hand 1' : 'Hand 2'}`,
-        playerId
-      );
+      logMessage = `${currentPlayer.nickname} swapped ${currentlyEquippedItem.name} with ${item.name} in ${equipmentSlot === 'wearable' ? 'Armor' : equipmentSlot === 'holdable1' ? 'Hand 1' : 'Hand 2'}`;
     } else {
       // Slot is empty, just remove from inventory
       inventory[inventoryIndex] = null;
-      await addLog(
-        gameState.lobbyCode,
-        'action',
-        `${currentPlayer.nickname} equipped ${item.name} in ${equipmentSlot === 'wearable' ? 'Armor' : equipmentSlot === 'holdable1' ? 'Hand 1' : 'Hand 2'}`,
-        playerId
-      );
+      logMessage = `${currentPlayer.nickname} equipped ${item.name} in ${equipmentSlot === 'wearable' ? 'Armor' : equipmentSlot === 'holdable1' ? 'Hand 1' : 'Hand 2'}`;
     }
 
     // Update equipment
@@ -89,11 +80,18 @@ export function useEquipmentManagement({
       [equipmentSlot]: item,
     };
 
-    // Update Firebase with normalized inventory
-    await updateGameState(gameState.lobbyCode, {
-      [`players/${playerId}/equipment`]: updatedEquipment,
-      [`players/${playerId}/inventory`]: normalizeInventory(inventory, currentPlayer.class),
-    });
+    // Update Firebase with normalized inventory and log in single operation
+    await updateGameStateWithLog(
+      gameState.lobbyCode,
+      {
+        [`players/${playerId}/equipment`]: updatedEquipment,
+        [`players/${playerId}/inventory`]: normalizeInventory(inventory, currentPlayer.class),
+      },
+      'action',
+      logMessage,
+      gameState.logs,
+      playerId
+    );
   };
 
   /**
@@ -129,16 +127,16 @@ export function useEquipmentManagement({
       [equipmentSlot]: null,
     };
 
-    // Update Firebase with normalized inventory
-    await updateGameState(gameState.lobbyCode, {
-      [`players/${playerId}/equipment`]: updatedEquipment,
-      [`players/${playerId}/inventory`]: normalizeInventory(inventory, currentPlayer.class),
-    });
-
-    await addLog(
+    // Update Firebase with normalized inventory and log in single operation
+    await updateGameStateWithLog(
       gameState.lobbyCode,
+      {
+        [`players/${playerId}/equipment`]: updatedEquipment,
+        [`players/${playerId}/inventory`]: normalizeInventory(inventory, currentPlayer.class),
+      },
       'action',
       `${currentPlayer.nickname} unequipped ${item.name} to inventory`,
+      gameState.logs,
       playerId
     );
   };
@@ -168,15 +166,15 @@ export function useEquipmentManagement({
       [toSlot]: fromItem,
     };
 
-    // Update Firebase
-    await updateGameState(gameState.lobbyCode, {
-      [`players/${playerId}/equipment`]: updatedEquipment,
-    });
-
-    await addLog(
+    // Update Firebase and log in single operation
+    await updateGameStateWithLog(
       gameState.lobbyCode,
+      {
+        [`players/${playerId}/equipment`]: updatedEquipment,
+      },
       'action',
       `${currentPlayer.nickname} swapped ${fromItem.name} between equipment slots`,
+      gameState.logs,
       playerId
     );
   };

@@ -266,28 +266,69 @@ export async function updateGameState(
 }
 
 /**
+ * Update game state and add log entry in a single atomic operation (PERFORMANCE OPTIMIZED)
+ * This avoids the extra read that addLog() normally does
+ * @param lobbyCode - The lobby code
+ * @param updates - Partial game state to update
+ * @param logType - Log entry type
+ * @param logMessage - Log message
+ * @param playerId - Optional player ID associated with log
+ * @param isImportant - Whether to highlight this log
+ * @param currentLogs - Current logs array from game state
+ */
+export async function updateGameStateWithLog(
+  lobbyCode: string,
+  updates: Partial<GameState>,
+  logType: 'action' | 'combat' | 'system' | 'chat',
+  logMessage: string,
+  currentLogs: LogEntry[],
+  playerId?: string,
+  isImportant?: boolean
+): Promise<void> {
+  const gameRef = ref(database, `games/${lobbyCode}`);
+  const newLog = createLogEntry(logType, logMessage, isImportant, playerId);
+
+  // Combine state updates with log update in single operation
+  await update(gameRef, {
+    ...updates,
+    logs: [...currentLogs, newLog],
+  });
+}
+
+/**
  * Add a log entry to the game
  * @param lobbyCode - The lobby code
  * @param type - Log entry type
  * @param message - Log message
  * @param playerId - Optional player ID associated with log
  * @param isImportant - Whether to highlight this log
+ * @param currentLogs - Optional current logs array to avoid extra read (performance optimization)
  */
 export async function addLog(
   lobbyCode: string,
   type: 'action' | 'combat' | 'system' | 'chat',
   message: string,
   playerId?: string,
-  isImportant?: boolean
+  isImportant?: boolean,
+  currentLogs?: LogEntry[]
 ): Promise<void> {
   const gameRef = ref(database, `games/${lobbyCode}`);
-  const snapshot = await get(gameRef);
-  const gameState = snapshot.val() as GameState;
+
+  let logs: LogEntry[];
+  if (currentLogs) {
+    // Use provided logs to avoid extra read
+    logs = currentLogs;
+  } else {
+    // Fall back to reading logs if not provided
+    const snapshot = await get(gameRef);
+    const gameState = snapshot.val() as GameState;
+    logs = gameState.logs;
+  }
 
   const newLog = createLogEntry(type, message, isImportant, playerId);
 
   await update(gameRef, {
-    logs: [...gameState.logs, newLog],
+    logs: [...logs, newLog],
   });
 }
 
@@ -363,6 +404,7 @@ export async function drawCards(
   let deck = Array.isArray(gameState[deckKey]) ? [...(gameState[deckKey] as any[])] : [];
   let discard = Array.isArray(gameState[discardKey]) ? [...(gameState[discardKey] as any[])] : [];
   const drawnCards: any[] = [];
+  const logsToAdd: LogEntry[] = [];
 
   for (let i = 0; i < count; i++) {
     // If deck is empty, reshuffle discard pile back into deck
@@ -374,7 +416,7 @@ export async function drawCards(
         } else {
           deck = buildEnemyDeck(tier);
         }
-        await addLog(lobbyCode, 'system', `${deckType} Tier ${tier} deck was empty and has been rebuilt.`);
+        logsToAdd.push(createLogEntry('system', `${deckType} Tier ${tier} deck was empty and has been rebuilt.`));
       } else {
         // Shuffle discard pile back into deck
         deck = [...discard];
@@ -384,7 +426,7 @@ export async function drawCards(
           const k = Math.floor(Math.random() * (j + 1));
           [deck[j], deck[k]] = [deck[k], deck[j]];
         }
-        await addLog(lobbyCode, 'system', `${deckType} Tier ${tier} deck reshuffled from discard pile.`);
+        logsToAdd.push(createLogEntry('system', `${deckType} Tier ${tier} deck reshuffled from discard pile.`));
       }
     }
 
@@ -395,11 +437,17 @@ export async function drawCards(
     }
   }
 
-  // Update game state with new deck and discard
-  await update(gameRef, {
+  // Update game state with new deck, discard, and logs in single operation
+  const updates: any = {
     [deckKey]: deck,
     [discardKey]: discard,
-  });
+  };
+
+  if (logsToAdd.length > 0) {
+    updates.logs = [...gameState.logs, ...logsToAdd];
+  }
+
+  await update(gameRef, updates);
 
   return drawnCards;
 }
@@ -416,13 +464,14 @@ export async function drawLuckCard(lobbyCode: string): Promise<any> {
 
   let luckDeck = Array.isArray(gameState.luckDeck) ? [...gameState.luckDeck] : [];
   let luckDiscard = Array.isArray(gameState.luckDiscard) ? [...gameState.luckDiscard] : [];
+  const logsToAdd: LogEntry[] = [];
 
   // If deck is empty, reshuffle discard pile
   if (luckDeck.length === 0) {
     if (luckDiscard.length === 0) {
       // Both empty - rebuild entire deck
       luckDeck = buildLuckDeck();
-      await addLog(lobbyCode, 'system', 'Luck Card deck was empty and has been rebuilt.');
+      logsToAdd.push(createLogEntry('system', 'Luck Card deck was empty and has been rebuilt.'));
     } else {
       // Shuffle discard back into deck
       luckDeck = [...luckDiscard];
@@ -432,18 +481,24 @@ export async function drawLuckCard(lobbyCode: string): Promise<any> {
         const j = Math.floor(Math.random() * (i + 1));
         [luckDeck[i], luckDeck[j]] = [luckDeck[j], luckDeck[i]];
       }
-      await addLog(lobbyCode, 'system', 'Luck Card deck reshuffled from discard pile.');
+      logsToAdd.push(createLogEntry('system', 'Luck Card deck reshuffled from discard pile.'));
     }
   }
 
   // Draw from top of deck
   const drawnCard = luckDeck.shift();
 
-  // Update game state
-  await update(gameRef, {
+  // Update game state with deck, discard, and logs in single operation
+  const updates: any = {
     luckDeck,
     luckDiscard,
-  });
+  };
+
+  if (logsToAdd.length > 0) {
+    updates.logs = [...gameState.logs, ...logsToAdd];
+  }
+
+  await update(gameRef, updates);
 
   return drawnCard;
 }

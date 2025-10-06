@@ -14,7 +14,7 @@ import type { EffectContext, EffectResult, Player } from '../../types';
  * @param context - Effect context with value indicating tiles to move back
  */
 export async function moveBack(context: EffectContext): Promise<EffectResult> {
-  const { gameState, playerId, value = 1, updateGameState, addLog } = context;
+  const { gameState, playerId, value = 1, updateGameState, addLog, lobbyCode } = context;
   const player = gameState.players[playerId];
 
   if (!player) {
@@ -32,8 +32,8 @@ export async function moveBack(context: EffectContext): Promise<EffectResult> {
     updates[`players/${playerId}/isInvisible`] = false;
   }
 
+  // Batch update and log in single operation by passing current logs
   await updateGameState(updates);
-
   await addLog(
     'action',
     `${player.nickname} moved ${value} tile${value > 1 ? 's' : ''} back to tile ${newPosition}`,

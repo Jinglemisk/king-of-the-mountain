@@ -4,7 +4,7 @@
  */
 
 import type { GameState, Item, Player } from '../../../types';
-import { updateGameState, addLog, drawCards, drawLuckCard, startCombat } from '../../../state/gameSlice';
+import { updateGameState, updateGameStateWithLog, addLog, drawCards, drawLuckCard, startCombat } from '../../../state/gameSlice';
 import { normalizeInventory } from '../../../utils/inventory';
 import { executeEffect } from '../../../services/effectExecutor';
 
@@ -61,14 +61,15 @@ export function useInventoryManagement({
     // Normalize before saving to ensure proper slot count
     const normalizedInventory = normalizeInventory(inventory, currentPlayer.class);
 
-    await updateGameState(gameState.lobbyCode, {
-      [`players/${playerId}/inventory`]: normalizedInventory,
-    });
-
-    await addLog(
+    // Update inventory and log in single operation
+    await updateGameStateWithLog(
       gameState.lobbyCode,
+      {
+        [`players/${playerId}/inventory`]: normalizedInventory,
+      },
       'action',
       `${currentPlayer.nickname} added item(s) to inventory`,
+      gameState.logs,
       playerId
     );
 
@@ -79,14 +80,15 @@ export function useInventoryManagement({
    * Handle inventory full modal - player selected which items to keep
    */
   const handleInventoryDiscard = async (itemsToKeep: (Item | null)[]) => {
-    await updateGameState(gameState.lobbyCode, {
-      [`players/${playerId}/inventory`]: normalizeInventory(itemsToKeep, currentPlayer.class),
-    });
-
-    await addLog(
+    // Update inventory and log in single operation
+    await updateGameStateWithLog(
       gameState.lobbyCode,
+      {
+        [`players/${playerId}/inventory`]: normalizeInventory(itemsToKeep, currentPlayer.class),
+      },
       'action',
       `${currentPlayer.nickname} reorganized inventory`,
+      gameState.logs,
       playerId
     );
 
@@ -136,16 +138,16 @@ export function useInventoryManagement({
       trapOwnerId: playerId,
     };
 
-    // Update Firebase with normalized inventory
-    await updateGameState(gameState.lobbyCode, {
-      [`players/${playerId}/inventory`]: normalizeInventory(inventory, currentPlayer.class),
-      tiles: updatedTiles,
-    });
-
-    await addLog(
+    // Update inventory, tile, and log in single operation
+    await updateGameStateWithLog(
       gameState.lobbyCode,
+      {
+        [`players/${playerId}/inventory`]: normalizeInventory(inventory, currentPlayer.class),
+        tiles: updatedTiles,
+      },
       'action',
       `${currentPlayer.nickname} placed a Trap on tile ${currentPlayer.position}! ⚠️`,
+      gameState.logs,
       playerId,
       true
     );
@@ -169,7 +171,7 @@ export function useInventoryManagement({
       playerId,
       itemId: item.id,
       updateGameState: (updates) => updateGameState(gameState.lobbyCode, updates),
-      addLog: (type, message, pid, important) => addLog(gameState.lobbyCode, type, message, pid, important),
+      addLog: (type, message, pid, important) => addLog(gameState.lobbyCode, type, message, pid, important, gameState.logs),
       drawCards: (deckType, tier, count) => drawCards(gameState.lobbyCode, deckType, tier, count),
       drawLuckCard: () => drawLuckCard(gameState.lobbyCode),
       startCombat: (attackerId, defenders, canRetreat) => startCombat(gameState.lobbyCode, attackerId, defenders, canRetreat),
