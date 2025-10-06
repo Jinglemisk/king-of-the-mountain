@@ -189,10 +189,21 @@ king-of-the-mountain/
 │   ├── screens/               # Top-level screen components
 │   │   ├── WelcomeScreen.tsx  # Nickname & lobby code entry
 │   │   ├── LobbyScreen.tsx    # Class selection & ready up
-│   │   ├── GameScreen.tsx     # Main gameplay screen
-│   │   └── GameScreen/        # GameScreen modules (future)
-│   │       ├── hooks/         # GameScreen-specific hooks
-│   │       └── components/    # GameScreen sub-components
+│   │   ├── GameScreen.tsx     # Main gameplay screen (modularized - 465 lines)
+│   │   └── GameScreen/        # GameScreen modules ✨ MODULARIZED!
+│   │       ├── hooks/         # GameScreen-specific hooks (6 hooks)
+│   │       │   ├── usePlayerUtils.ts       # Player queries
+│   │       │   ├── useInventoryManagement.ts # Inventory operations
+│   │       │   ├── useEquipmentManagement.ts # Equipment operations
+│   │       │   ├── useDragAndDrop.ts       # Drag-drop state
+│   │       │   ├── useTurnActions.ts       # Turn actions
+│   │       │   └── useCombat.ts            # Combat operations
+│   │       └── components/    # GameScreen sub-components (5 components)
+│   │           ├── PlayerStats.tsx         # Player stats display
+│   │           ├── GameLog.tsx             # Event logs display
+│   │           ├── EquipmentSlots.tsx      # Equipment UI
+│   │           ├── InventoryGrid.tsx       # Inventory UI
+│   │           └── ActionButtons.tsx       # Turn actions UI
 │   │
 │   ├── state/                 # State management
 │   │   └── gameSlice.ts       # Firebase update functions
@@ -917,11 +928,11 @@ console.log(scoutClass?.specialEffect); // "Immune to Trap items..."
 
 ---
 
-### `src/screens/GameScreen.tsx`
+### `src/screens/GameScreen.tsx` ✨ MODULARIZED!
 
 #### `<GameScreen />`
-**Location**: `src/screens/GameScreen.tsx:24`
-**Description**: Main gameplay screen with board, inventory, and actions
+**Location**: `src/screens/GameScreen.tsx:41`
+**Description**: Main gameplay screen orchestrating board, inventory, and actions using modular components and hooks
 **Props**:
 - `gameState: GameState` - Current game state from Firebase
 - `playerId: string` - This player's ID
@@ -929,28 +940,27 @@ console.log(scoutClass?.specialEffect); // "Immune to Trap items..."
 - `selectedItem`: Currently selected item for detail view
 - `showLogs`: Whether logs panel is visible
 - `activeTab`: 'logs' | 'chat'
+- Modal states for various game features
 
-**Key Functions**:
-- `handleMove()` - Rolls d4, moves player forward, checks for traps, resolves tile effects
-- `handleSleep()` - Restores player to full HP
-- `handleEndTurn()` - Advances to next player's turn
-- `handleUseTrap(item, inventoryIndex)` - Places trap on current tile
-- `resolveTileEffect(tile)` - Resolves tile effects (enemy/treasure/luck)
-- `addItemToInventory(items)` - Adds items to first available slots, uses `normalizeInventory()` from `utils/inventory.ts`
-- `handleEquipItem()` - Equips item from inventory to equipment slot
-- `handleUnequipItem()` - Unequips item from equipment to inventory
-- `handleSwapEquippedItems()` - Swaps items between equipment slots
-- `handleCardRevealClose()` - Handles card reveal modal close
-- `handleInventoryDiscard(items)` - Handles inventory overflow
-- `handleCombatAttack()` - Execute combat attack round
-- `handleCombatRetreat()` - Retreat from combat (moves back 6 tiles)
-- `handleCombatEnd()` - End combat and handle outcomes
-- `handleDuel()` - Initiate PvP duel with another player
-- `renderEquipment()` - Renders equipped items UI with drag-and-drop
-- `renderInventory()` - Renders backpack inventory UI with drag-and-drop and trap button, uses `normalizeInventory()` from `utils/inventory.ts`
-- `renderStats()` - Displays player stats using `calculatePlayerStats()` from `utils/playerStats.ts`
-- `renderActions()` - Renders action buttons for current turn
-- `renderLogs()` - Renders event logs panel
+**Architecture**:
+The GameScreen has been fully modularized from **1,425 lines to 465 lines** (67% reduction) by extracting:
+- **5 UI Components** (PlayerStats, GameLog, EquipmentSlots, InventoryGrid, ActionButtons)
+- **6 Custom Hooks** (usePlayerUtils, useInventoryManagement, useEquipmentManagement, useDragAndDrop, useTurnActions, useCombat)
+
+**Components Used**:
+- `<PlayerStats />` - Displays HP, attack, defense, class
+- `<GameLog />` - Displays event logs with tabs
+- `<EquipmentSlots />` - Equipment slots with drag-and-drop
+- `<InventoryGrid />` - Inventory grid with trap placement
+- `<ActionButtons />` - Turn action buttons
+
+**Hooks Used**:
+- `usePlayerUtils()` - Player queries (same tile, unconscious, current tile)
+- `useInventoryManagement()` - Inventory operations (add, update, discard, trap, drop)
+- `useEquipmentManagement()` - Equipment operations (equip, unequip, swap, validation)
+- `useDragAndDrop()` - Drag-and-drop state management
+- `useTurnActions()` - Turn actions (move, sleep, duel, end turn, unconscious)
+- `useCombat()` - Combat operations (attack, retreat, end, reveal, looting)
 
 **Tile Resolution Flow**:
 1. Player moves to new tile
@@ -1152,6 +1162,203 @@ console.log(scoutClass?.specialEffect); // "Immune to Trap items..."
 - `maxLength?: number`
 - `disabled?: boolean`
 - `autoFocus?: boolean`
+
+---
+
+### GameScreen Components ✨ NEW!
+
+#### `<PlayerStats />`
+**Location**: `src/screens/GameScreen/components/PlayerStats.tsx:13`
+**Description**: Displays player's current HP, attack, defense, and class
+**Props**:
+- `player: Player` - The player object
+**Features**:
+- Shows HP as current/max
+- Displays total attack and defense (from equipment only)
+- Uses `calculatePlayerStats()` from `utils/playerStats.ts`
+- Class bonuses excluded from inventory display
+
+---
+
+#### `<GameLog />`
+**Location**: `src/screens/GameScreen/components/GameLog.tsx:14`
+**Description**: Displays event logs and chat placeholder with tabbed interface
+**Props**:
+- `logs: LogEntry[]` - Array of game event logs
+- `activeTab: 'logs' | 'chat'` - Currently active tab
+- `onTabChange: (tab: 'logs' | 'chat') => void` - Tab change handler
+**Features**:
+- Shows last 20 logs in reverse chronological order
+- Log types: action, combat, system, chat
+- Important logs highlighted
+- Timestamps displayed
+- Chat tab placeholder for future implementation
+
+---
+
+#### `<EquipmentSlots />`
+**Location**: `src/screens/GameScreen/components/EquipmentSlots.tsx:19`
+**Description**: Displays and manages equipped items (2 Holdable, 1 Wearable) with drag-and-drop
+**Props**:
+- `equipment: Equipment` - Current equipment object
+- `draggedItem: { item: Item; source: string } | null` - Currently dragged item
+- `canEquipItemInSlot: (item: Item, slot) => boolean` - Validation function
+- `onDragStart: (item: Item, source: string) => void` - Drag start handler
+- `onDragOver: (e: React.DragEvent) => void` - Drag over handler
+- `onDrop: (e: React.DragEvent, slot) => void` - Drop handler
+- `onItemClick: (item: Item) => void` - Item click handler
+**Features**:
+- Three equipment slots: Hand 1, Hand 2, Armor
+- Drag-and-drop equip/unequip/swap
+- Valid/invalid drop zone visual feedback
+- Empty slot placeholders
+
+---
+
+#### `<InventoryGrid />`
+**Location**: `src/screens/GameScreen/components/InventoryGrid.tsx:20`
+**Description**: Displays player's carried items with drag-and-drop and trap placement
+**Props**:
+- `player: Player` - The player object
+- `isMyTurn: boolean` - Whether it's the player's turn
+- `onDragStart: (item: Item, source: string) => void` - Drag start handler
+- `onDragOver: (e: React.DragEvent) => void` - Drag over handler
+- `onDropOnInventory: (e: React.DragEvent) => void` - Drop handler
+- `onItemClick: (item: Item) => void` - Item click handler
+- `onUseTrap: (item: Item, index: number) => void` - Trap use handler
+**Features**:
+- Displays 4 slots (5 for Porter class)
+- Drag-and-drop item management
+- Trap placement button (only on player's turn)
+- Auto-normalizes inventory using `normalizeInventory()` from `utils/inventory.ts`
+
+---
+
+#### `<ActionButtons />`
+**Location**: `src/screens/GameScreen/components/ActionButtons.tsx:38`
+**Description**: Displays available actions for the current player's turn
+**Props**:
+- `isMyTurn: boolean` - Whether it's this player's turn
+- `currentPlayer: Player` - The current player
+- `turnPlayerNickname: string` - Nickname of player whose turn it is
+- `playersOnSameTile: Record<string, Player>` - Players on same tile
+- `unconsciousPlayersOnTile: Record<string, Player>` - Unconscious players on tile
+- `isSanctuary: boolean` - Whether current tile is sanctuary
+- `onMove: () => void` - Move action handler
+- `onSleep: () => void` - Sleep action handler
+- `onShowDuelModal: () => void` - Show duel modal handler
+- `onLootPlayer: (playerId: string) => void` - Loot player handler
+- `onEndTurn: () => void` - End turn handler
+**Features**:
+- Shows waiting message when not player's turn
+- Shows wake up message when unconscious
+- Action buttons: Move, Sleep, Duel, Loot, Trade (coming soon)
+- End Turn button
+- Buttons disabled appropriately based on game state
+
+---
+
+### GameScreen Hooks ✨ NEW!
+
+#### `usePlayerUtils()`
+**Location**: `src/screens/GameScreen/hooks/usePlayerUtils.ts:14`
+**Description**: Provides utility functions for player-related calculations and queries
+**Parameters**:
+- `gameState: GameState` - Current game state
+- `playerId: string` - This player's ID
+- `currentPlayer: Player` - Current player object
+**Returns**:
+- `getPlayersOnSameTile()` - Returns alive players on same tile (for dueling)
+- `getUnconsciousPlayersOnSameTile()` - Returns unconscious players on tile (for looting)
+- `getCurrentTile()` - Returns the tile the player is currently on
+
+---
+
+#### `useInventoryManagement()`
+**Location**: `src/screens/GameScreen/hooks/useInventoryManagement.ts:21`
+**Description**: Handles all inventory-related operations
+**Parameters**:
+- `gameState: GameState` - Current game state
+- `playerId: string` - This player's ID
+- `currentPlayer: Player` - Current player object
+- State setters for pending items and modals
+- `draggedItem` and `setDraggedItem` - Drag state
+- `handleUnequipItem` - From equipment management hook
+**Returns**:
+- `addItemToInventory(items)` - Adds items to first available slots with overflow detection
+- `handleInventoryUpdate(inventory)` - Updates inventory in Firebase
+- `handleInventoryDiscard(itemsToKeep)` - Handles overflow modal selection
+- `handleUseTrap(item, index)` - Places trap on current tile
+- `handleDropOnInventory(e)` - Handles dropping item onto inventory
+
+---
+
+#### `useEquipmentManagement()`
+**Location**: `src/screens/GameScreen/hooks/useEquipmentManagement.ts:17`
+**Description**: Handles all equipment-related operations
+**Parameters**:
+- `gameState: GameState` - Current game state
+- `playerId: string` - This player's ID
+- `currentPlayer: Player` - Current player object
+- `draggedItem` and `setDraggedItem` - Drag state
+**Returns**:
+- `canEquipItemInSlot(item, slot)` - Validates if item can be equipped in slot
+- `handleEquipItem(item, index, slot)` - Equips item from inventory
+- `handleUnequipItem(item, slot)` - Unequips item to inventory
+- `handleSwapEquippedItems(fromSlot, toSlot)` - Swaps items between equipment slots
+- `handleDropOnEquipment(e, slot)` - Handles dropping item onto equipment slot
+
+---
+
+#### `useDragAndDrop()`
+**Location**: `src/screens/GameScreen/hooks/useDragAndDrop.ts:9`
+**Description**: Manages drag-and-drop state and handlers
+**Parameters**: None
+**Returns**:
+- `draggedItem` - Currently dragged item with source location
+- `setDraggedItem` - State setter for dragged item
+- `handleDragStart(item, source)` - Initiates drag operation
+- `handleDragOver(e)` - Allows drop by preventing default
+
+---
+
+#### `useTurnActions()`
+**Location**: `src/screens/GameScreen/hooks/useTurnActions.ts:31`
+**Description**: Handles all turn-related actions (move, sleep, duel, end turn, etc.)
+**Parameters**:
+- `gameState: GameState` - Current game state
+- `playerId: string` - This player's ID
+- `currentPlayer: Player` - Current player object
+- `safeTurnPlayer: Player` - Turn player with fallback
+- State setters for cards, combat, modals
+- `handleEndTurn` - Passed from parent for circular dependency
+**Returns**:
+- `resolveTileEffect(tile)` - Resolves tile effects (enemy/treasure/luck)
+- `handleMove()` - Rolls dice, moves player, checks traps, resolves tile
+- `handleSleep()` - Restores player to full HP
+- `handleEndTurn()` - Advances to next player's turn
+- `handleDuel(targetPlayerId)` - Initiates PvP duel
+- `handleLootPlayer(targetPlayerId)` - Opens looting modal
+- `handleUnconsciousPlayerTurn()` - Auto-wakes unconscious player
+
+---
+
+#### `useCombat()`
+**Location**: `src/screens/GameScreen/hooks/useCombat.ts:27`
+**Description**: Handles all combat-related operations
+**Parameters**:
+- `gameState: GameState` - Current game state
+- `playerId: string` - This player's ID
+- `currentPlayer: Player` - Current player object
+- State setters for combat, looting, inventory
+- `revealCardType`, `combatEnemies`, `pendingItems` - Combat state
+- `addItemToInventory` and `handleInventoryUpdate` - From inventory hook
+**Returns**:
+- `handleCombatAttack(targetId?)` - Executes combat round with optional target
+- `handleCombatRetreat()` - Retreats from combat (moves back 6 tiles)
+- `handleCombatEnd()` - Ends combat, handles victory/defeat, distributes loot
+- `handleCardRevealClose()` - Handles card reveal modal close, starts combat if needed
+- `handleLootingFinish()` - Ends looting and closes modal
 
 ---
 
@@ -1510,18 +1717,18 @@ This would require adding Firebase Authentication, which is currently not implem
 4. ✅ ~~Implement combat system (PvE & PvP)~~ - **COMPLETED**
 5. ✅ ~~Manual inventory management - equip/unequip items~~ - **COMPLETED**
 6. ✅ ~~Code refactoring and optimization~~ - **COMPLETED**
+7. ✅ ~~GameScreen modularization (components + hooks)~~ - **COMPLETED**
 
 ### Short-term Goals (Week 2-3)
-7. Implement Luck Card effects - cards are drawn, need to apply effects
-8. Implement all item special effects
-9. Implement trading system
-10. Add chat system
+1. Implement Luck Card effects - cards are drawn, need to apply effects
+2. Implement all item special effects
+3. Implement trading system
+4. Add chat system
 
 ### Medium-term Goals (Month 1)
-8. Polish UI/UX (animations, sounds, better feedback)
-9. Add chat system
-10. Playtesting and balance adjustments
-11. Deploy to production hosting (Vercel, Netlify, Firebase Hosting)
+1. Polish UI/UX (animations, sounds, better feedback)
+2. Playtesting and balance adjustments
+3. Deploy to production hosting (Vercel, Netlify, Firebase Hosting)
 
 ### Long-term Enhancements
 - Player accounts and persistent profiles
@@ -1535,7 +1742,61 @@ This would require adding Firebase Authentication, which is currently not implem
 
 ## Recent Updates
 
-### Code Refactoring & Optimization (Latest - October 2025)
+### GameScreen Modularization (Latest - October 2025)
+
+**What was modularized:**
+
+Successfully refactored `GameScreen.tsx` from **1,425 lines to 465 lines** (67% reduction) by extracting business logic into focused, reusable components and custom hooks.
+
+**1. UI Components Created** (`src/screens/GameScreen/components/`)
+   - **`PlayerStats.tsx`** (44 lines) - Displays HP, attack, defense, class
+   - **`GameLog.tsx`** (58 lines) - Event logs with tabs for logs/chat
+   - **`EquipmentSlots.tsx`** (107 lines) - Equipment slots with drag-and-drop
+   - **`InventoryGrid.tsx`** (76 lines) - Inventory grid with trap placement
+   - **`ActionButtons.tsx`** (101 lines) - Turn action buttons
+
+**2. Custom Hooks Created** (`src/screens/GameScreen/hooks/`)
+   - **`usePlayerUtils.ts`** (53 lines) - Player queries (same tile, unconscious, current tile)
+   - **`useInventoryManagement.ts`** (177 lines) - Inventory operations (add, update, discard, trap, drop)
+   - **`useEquipmentManagement.ts`** (221 lines) - Equipment operations (equip, unequip, swap, validation)
+   - **`useDragAndDrop.ts`** (31 lines) - Drag-and-drop state management
+   - **`useTurnActions.ts`** (304 lines) - Turn actions (move, sleep, duel, end turn, unconscious)
+   - **`useCombat.ts`** (167 lines) - Combat operations (attack, retreat, end, reveal, looting)
+
+**3. Architecture Improvements**
+   - **Single Responsibility**: Each component/hook handles one concern
+   - **Reusability**: Components and hooks can be used independently
+   - **Testability**: Smaller, focused units are easier to test
+   - **Maintainability**: Clear separation of concerns
+   - **Type Safety**: Full TypeScript coverage maintained
+
+**4. Circular Dependency Resolution**
+   - Used ref pattern to handle `useTurnActions` needing `handleEndTurn`
+   - `turnActionsRef.current` holds reference to avoid circular dependency
+
+**Code Quality Improvements:**
+- ✅ **Zero TypeScript errors** after modularization
+- ✅ **960 lines removed** from main GameScreen file
+- ✅ **Clear component hierarchy** with props flowing down
+- ✅ **Better code navigation** with organized file structure
+- ✅ **Faster development** with smaller, focused files
+
+**Testing:**
+- ✅ Build passes with no errors
+- ✅ All functionality preserved
+- ✅ No breaking changes
+- ✅ Bundle size: 478.77 kB (no size increase)
+
+**File Statistics:**
+- **Original GameScreen.tsx**: 1,425 lines
+- **Refactored GameScreen.tsx**: 465 lines
+- **Total new files**: 11 (5 components + 6 hooks)
+- **Total new code**: 1,139 lines (well-organized in modules)
+- **Net benefit**: Highly maintainable, modular architecture
+
+---
+
+### Code Refactoring & Optimization (October 2025)
 
 **What was refactored:**
 
