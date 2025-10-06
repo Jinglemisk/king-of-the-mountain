@@ -4,8 +4,9 @@
  */
 
 import type { GameState, Item, Player } from '../../../types';
-import { updateGameState, addLog } from '../../../state/gameSlice';
+import { updateGameState, addLog, drawCards, drawLuckCard, startCombat } from '../../../state/gameSlice';
 import { normalizeInventory } from '../../../utils/inventory';
+import { executeEffect } from '../../../services/effectExecutor';
 
 interface UseInventoryManagementParams {
   gameState: GameState;
@@ -151,6 +152,45 @@ export function useInventoryManagement({
   };
 
   /**
+   * Handle using a consumable item (potions, scrolls, etc.)
+   */
+  const handleUseItem = async (item: Item, inventoryIndex: number) => {
+    if (!item.isConsumable || !item.special) return;
+
+    // Trap has its own handler
+    if (item.special === 'trap') {
+      return handleUseTrap(item, inventoryIndex);
+    }
+
+    // Execute the item's effect
+    const result = await executeEffect(item.special, {
+      gameState,
+      lobbyCode: gameState.lobbyCode,
+      playerId,
+      itemId: item.id,
+      updateGameState: (updates) => updateGameState(gameState.lobbyCode, updates),
+      addLog: (type, message, pid, important) => addLog(gameState.lobbyCode, type, message, pid, important),
+      drawCards: (deckType, tier, count) => drawCards(gameState.lobbyCode, deckType, tier, count),
+      drawLuckCard: () => drawLuckCard(gameState.lobbyCode),
+      startCombat: (attackerId, defenders, canRetreat) => startCombat(gameState.lobbyCode, attackerId, defenders, canRetreat),
+      resolveTile: async () => {
+        // No-op for consumable items used outside of movement
+        // Items used during movement will have proper tile resolution
+      },
+    });
+
+    if (result.success) {
+      // Remove consumed item from inventory
+      const inventory = normalizeInventory(currentPlayer.inventory, currentPlayer.class);
+      inventory[inventoryIndex] = null;
+
+      await updateGameState(gameState.lobbyCode, {
+        [`players/${playerId}/inventory`]: normalizeInventory(inventory, currentPlayer.class),
+      });
+    }
+  };
+
+  /**
    * Handle dropping an item onto the inventory area
    */
   const handleDropOnInventory = async (e: React.DragEvent) => {
@@ -174,6 +214,7 @@ export function useInventoryManagement({
     handleInventoryUpdate,
     handleInventoryDiscard,
     handleUseTrap,
+    handleUseItem,
     handleDropOnInventory,
   };
 }

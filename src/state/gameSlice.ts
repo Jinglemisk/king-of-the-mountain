@@ -21,6 +21,7 @@ import { buildEnemyDeck, getEnemyComposition } from '../data/enemies';
 import { buildTreasureDeck, buildLuckDeck } from '../data/cards';
 import { generateBoardTiles } from '../data/BoardLayout';
 import { getEquipmentBonuses, getClassCombatBonuses } from '../utils/playerStats';
+import { getTempEffectCombatBonuses, removeTempEffect, hasWardstoneProtection } from '../utils/tempEffects';
 
 /**
  * Create a new game lobby with initial state
@@ -543,9 +544,10 @@ export async function executeCombatRound(
   const firstDefender = combat.defenders[0];
   const isVsEnemy = 'attackBonus' in firstDefender && 'defenseBonus' in firstDefender;
 
-  // Get class and equipment bonuses for attacker
+  // Get class, equipment, and temp effect bonuses for attacker
   const classBonuses = getClassCombatBonuses(attacker, isVsEnemy);
   const equipmentBonuses = getEquipmentBonuses(attacker);
+  const tempEffectBonuses = getTempEffectCombatBonuses(attacker);
 
   // Roll for attacker
   const attackerRoll: CombatRoll = {
@@ -553,8 +555,8 @@ export async function executeCombatRound(
     entityName: attacker.nickname,
     attackDie: skipPlayerAttack ? 0 : rollDice(6),
     defenseDie: rollDice(6),
-    attackBonus: classBonuses.attackBonus + equipmentBonuses.attackBonus,
-    defenseBonus: classBonuses.defenseBonus + equipmentBonuses.defenseBonus,
+    attackBonus: classBonuses.attackBonus + equipmentBonuses.attackBonus + tempEffectBonuses.attackBonus,
+    defenseBonus: classBonuses.defenseBonus + equipmentBonuses.defenseBonus + tempEffectBonuses.defenseBonus,
     totalAttack: 0,
     totalDefense: 0,
   };
@@ -578,8 +580,9 @@ export async function executeCombatRound(
       const defPlayer = defender as Player;
       const defClassBonuses = getClassCombatBonuses(defPlayer, false); // PvP
       const defEquipmentBonuses = getEquipmentBonuses(defPlayer);
-      defAttackBonus = defClassBonuses.attackBonus + defEquipmentBonuses.attackBonus;
-      defDefenseBonus = defClassBonuses.defenseBonus + defEquipmentBonuses.defenseBonus;
+      const defTempEffectBonuses = getTempEffectCombatBonuses(defPlayer);
+      defAttackBonus = defClassBonuses.attackBonus + defEquipmentBonuses.attackBonus + defTempEffectBonuses.attackBonus;
+      defDefenseBonus = defClassBonuses.defenseBonus + defEquipmentBonuses.defenseBonus + defTempEffectBonuses.defenseBonus;
     } else {
       const enemy = defender as Enemy;
       defAttackBonus = enemy.attackBonus;
@@ -609,8 +612,23 @@ export async function executeCombatRound(
     const defenderHits = defenderRoll.totalAttack > attackerRoll.totalDefense;
 
     // Calculate damage
-    const defenderHpLost = attackerHits ? 1 : 0;
-    const attackerHpLost = defenderHits ? 1 : 0;
+    let defenderHpLost = attackerHits ? 1 : 0;
+    let attackerHpLost = defenderHits ? 1 : 0;
+
+    // Check Wardstone protection for attacker
+    if (attackerHpLost > 0 && hasWardstoneProtection(attacker)) {
+      attackerHpLost = 0; // Prevent HP loss
+      attacker.tempEffects = removeTempEffect(attacker, 'wardstone');
+      await addLog(lobbyCode, 'combat', `🛡️ ${attacker.nickname}'s Wardstone absorbed the damage!`, attacker.id, true);
+    }
+
+    // Check Wardstone protection for defender (if player)
+    const isDefenderPlayer = 'nickname' in defender;
+    if (isDefenderPlayer && defenderHpLost > 0 && hasWardstoneProtection(defender as Player)) {
+      defenderHpLost = 0; // Prevent HP loss
+      (defender as Player).tempEffects = removeTempEffect(defender as Player, 'wardstone');
+      await addLog(lobbyCode, 'combat', `🛡️ ${(defender as Player).nickname}'s Wardstone absorbed the damage!`, defender.id, true);
+    }
 
     // Update HP
     const newDefenderHp = Math.max(0, defender.hp - defenderHpLost);

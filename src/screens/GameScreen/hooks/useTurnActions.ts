@@ -13,6 +13,8 @@ import {
   drawEnemiesForTile,
   startCombat,
 } from '../../../state/gameSlice';
+import { decrementTempEffects, getMovementModifier } from '../../../utils/tempEffects';
+import { executeEffect } from '../../../services/effectExecutor';
 
 interface UseTurnActionsParams {
   gameState: GameState;
@@ -49,8 +51,10 @@ export function useTurnActions({
 }: UseTurnActionsParams) {
   /**
    * Resolve tile effects based on tile type
+   * @param tile - The tile to resolve effects for
+   * @param effectGameState - Optional updated game state to use for effects (defaults to current gameState)
    */
-  const resolveTileEffect = async (tile: Tile) => {
+  const resolveTileEffect = async (tile: Tile, effectGameState: GameState = gameState) => {
     const tileType = tile.type;
 
     // Start tile and Final tile have no draw effects
@@ -118,7 +122,28 @@ export function useTurnActions({
       setRevealCardType('luck');
       setShowCardReveal(true);
 
-      // TODO: Apply Luck Card effects (future implementation)
+      // Execute Luck Card effect (if not a "keep face down" card)
+      // Cards with canBeKept will be executed when player chooses to use them
+      if (!luckCard.canBeKept) {
+        // Execute effect automatically with updated game state
+        await executeEffect(luckCard.effect, {
+          gameState: effectGameState, // Use effectGameState instead of stale gameState
+          lobbyCode: gameState.lobbyCode,
+          playerId,
+          value: luckCard.value,
+          updateGameState: (updates) => updateGameState(gameState.lobbyCode, updates),
+          addLog: (type, message, pid, important) => addLog(gameState.lobbyCode, type, message, pid, important),
+          drawCards: (deckType, tier, count) => drawCards(gameState.lobbyCode, deckType, tier, count),
+          drawLuckCard: () => drawLuckCard(gameState.lobbyCode),
+          startCombat: (attackerId, defenders, canRetreat) => startCombat(gameState.lobbyCode, attackerId, defenders, canRetreat),
+          resolveTile: async (position, updatedState) => {
+            const tile = gameState.tiles[position];
+            if (tile) {
+              await resolveTileEffect(tile, updatedState);
+            }
+          },
+        });
+      }
     }
   };
 
@@ -128,8 +153,12 @@ export function useTurnActions({
   const handleMove = async () => {
     const roll = rollDice(4); // 4-sided die for movement
 
+    // Apply movement modifiers from temp effects (e.g., Beer debuff)
+    const movementModifier = getMovementModifier(currentPlayer);
+    const totalMovement = Math.max(0, roll + movementModifier);
+
     // Calculate new position (can't overshoot final tile at 19)
-    let newPosition = currentPlayer.position + roll;
+    let newPosition = currentPlayer.position + totalMovement;
     if (newPosition > 19) {
       newPosition = 19;
     }
@@ -141,16 +170,31 @@ export function useTurnActions({
     });
 
     // Log the move
+    const modifierText = movementModifier !== 0 ? ` (${movementModifier > 0 ? '+' : ''}${movementModifier} modifier)` : '';
     await addLog(
       gameState.lobbyCode,
       'action',
-      `${currentPlayer.nickname} rolled ${roll} and moved to tile ${newPosition}`,
+      `${currentPlayer.nickname} rolled ${roll}${modifierText} and moved to tile ${newPosition}`,
       playerId
     );
 
     // Get the landed tile
     const landedTile = gameState.tiles[newPosition];
     if (!landedTile) return;
+
+    // Create updated gameState with new position for effects to use
+    // This prevents effects from seeing stale position data
+    const updatedGameState: GameState = {
+      ...gameState,
+      players: {
+        ...gameState.players,
+        [playerId]: {
+          ...currentPlayer,
+          position: newPosition,
+          actionTaken: 'move',
+        },
+      },
+    };
 
     // Check for trap on the landed tile
     if (landedTile.hasTrap && landedTile.trapOwnerId !== playerId) {
@@ -191,8 +235,8 @@ export function useTurnActions({
       }
     }
 
-    // Resolve tile effects (only reached if no trap or Scout immunity)
-    await resolveTileEffect(landedTile);
+    // Resolve tile effects with updated game state (only reached if no trap or Scout immunity)
+    await resolveTileEffect(landedTile, updatedGameState);
   };
 
   /**
@@ -217,6 +261,9 @@ export function useTurnActions({
    * Handle ending the current turn
    */
   const handleEndTurn = async () => {
+    // Decrement and clean up temp effects for current player
+    const updatedTempEffects = decrementTempEffects(currentPlayer);
+
     // Move to next player in turn order
     const nextIndex = (gameState.currentTurnIndex + 1) % gameState.turnOrder.length;
     const nextPlayerId = gameState.turnOrder[nextIndex];
@@ -225,6 +272,7 @@ export function useTurnActions({
     await updateGameState(gameState.lobbyCode, {
       currentTurnIndex: nextIndex,
       [`players/${playerId}/actionTaken`]: null,
+      [`players/${playerId}/tempEffects`]: updatedTempEffects,
       [`players/${nextPlayerId}/actionTaken`]: null,
     });
 

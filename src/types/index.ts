@@ -316,3 +316,35 @@ export interface DiceRoll {
   timestamp: number;           // When rolled
   playerId: string;            // Who rolled
 }
+
+// ============================================================================
+// EFFECT SYSTEM TYPES
+// ============================================================================
+
+/** Context passed to effect handlers containing all necessary game state and utilities */
+export interface EffectContext {
+  gameState: GameState;        // Full game state
+  lobbyCode: string;           // Lobby code for Firebase updates
+  playerId: string;            // ID of player triggering the effect
+  targetId?: string;           // Optional target player/enemy ID
+  value?: number;              // Optional numeric value (e.g., movement amount)
+  itemId?: string;             // Optional item ID that triggered effect
+  // Utility functions
+  updateGameState: (updates: Partial<GameState>) => Promise<void>;
+  addLog: (type: 'action' | 'combat' | 'system' | 'chat', message: string, playerId?: string, isImportant?: boolean) => Promise<void>;
+  drawCards: (deckType: 'treasure' | 'enemy', tier: 1 | 2 | 3, count: number) => Promise<any[]>;
+  drawLuckCard: () => Promise<LuckCard>;
+  startCombat: (attackerId: string, defenders: (Enemy | Player)[], canRetreat: boolean) => Promise<void>;
+  resolveTile: (position: number, updatedGameState: GameState) => Promise<void>;
+}
+
+/** Result of an effect execution */
+export interface EffectResult {
+  success: boolean;            // Whether effect executed successfully
+  message?: string;            // Optional result message
+  error?: string;              // Error message if failed
+  data?: any;                  // Optional data returned by effect
+}
+
+/** Effect handler function signature */
+export type EffectHandler = (context: EffectContext) => Promise<EffectResult>;

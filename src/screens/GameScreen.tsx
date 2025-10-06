@@ -12,7 +12,8 @@ import { Modal } from '../components/ui/Modal';
 import { CardRevealModal } from '../components/game/CardRevealModal';
 import { CombatModal } from '../components/game/CombatModal';
 import { InventoryFullModal } from '../components/game/InventoryFullModal';
-import { updateGameState } from '../state/gameSlice';
+import { updateGameState, addLog } from '../state/gameSlice';
+import { shouldSkipTurn } from '../utils/tempEffects';
 
 // Import components
 import { PlayerStats } from './GameScreen/components/PlayerStats';
@@ -171,6 +172,30 @@ export function GameScreen({ gameState, playerId }: GameScreenProps) {
       return () => clearTimeout(timer);
     }
   }, [isMyTurn, currentPlayer.isAlive, gameState.status]);
+
+  /**
+   * Auto-skip turn if player has skip_turn temp effect
+   */
+  useEffect(() => {
+    // Check if it's my turn, I'm alive, and I should skip
+    if (isMyTurn && currentPlayer.isAlive && shouldSkipTurn(currentPlayer) && gameState.status === 'active') {
+      // Log the skip message
+      addLog(
+        gameState.lobbyCode,
+        'action',
+        `😴 ${currentPlayer.nickname}'s turn was skipped!`,
+        playerId,
+        true
+      );
+
+      // Auto-end turn after a short delay so player sees the message
+      const timer = setTimeout(() => {
+        turnActions.handleEndTurn();
+      }, 1500);
+
+      return () => clearTimeout(timer);
+    }
+  }, [isMyTurn, currentPlayer.isAlive, currentPlayer.tempEffects, gameState.status]);
 
   // Check for winner
   if (gameState.winnerId) {

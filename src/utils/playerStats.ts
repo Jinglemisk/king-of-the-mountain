@@ -1,9 +1,10 @@
 /**
  * Player stats calculation utilities
- * Consolidates attack/defense calculations from equipment and class bonuses
+ * Consolidates attack/defense calculations from equipment, class bonuses, and temporary effects
  */
 
 import type { Player } from '../types';
+import { getTempEffectCombatBonuses } from './tempEffects';
 
 /**
  * Calculate equipment bonuses for attack and defense
@@ -71,12 +72,14 @@ export function getClassCombatBonuses(
  * @param player - The player
  * @param isVsEnemy - True if fighting enemies, false if fighting players
  * @param includeClassBonuses - Whether to include class combat bonuses (default true)
+ * @param includeTempEffects - Whether to include temporary effects (default true)
  * @returns Object with total attack and defense
  */
 export function calculatePlayerStats(
   player: Player,
   isVsEnemy: boolean = true,
-  includeClassBonuses: boolean = true
+  includeClassBonuses: boolean = true,
+  includeTempEffects: boolean = true
 ): {
   attack: number;
   defense: number;
@@ -88,9 +91,12 @@ export function calculatePlayerStats(
   const classBonuses = includeClassBonuses
     ? getClassCombatBonuses(player, isVsEnemy)
     : { attackBonus: 0, defenseBonus: 0 };
+  const tempEffectBonuses = includeTempEffects
+    ? getTempEffectCombatBonuses(player)
+    : { attackBonus: 0, defenseBonus: 0 };
 
   return {
-    attack: BASE_ATTACK + equipmentBonuses.attackBonus + classBonuses.attackBonus,
-    defense: BASE_DEFENSE + equipmentBonuses.defenseBonus + classBonuses.defenseBonus,
+    attack: BASE_ATTACK + equipmentBonuses.attackBonus + classBonuses.attackBonus + tempEffectBonuses.attackBonus,
+    defense: BASE_DEFENSE + equipmentBonuses.defenseBonus + classBonuses.defenseBonus + tempEffectBonuses.defenseBonus,
   };
 }
