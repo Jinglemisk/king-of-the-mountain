@@ -550,8 +550,8 @@ const enemies = await drawEnemiesForTile('ABC123', 2); // Might return 2 T1 or 1
 **Returns**: Array of Tile objects based on BOARD_PATTERN
 **Configuration**: Edit `src/data/BoardLayout.ts` to customize:
   - `BOARD_CONFIG` - Total tiles, start/final positions, sanctuary locations
-  - `TILE_DISTRIBUTION` - Count of each tile type
-  - `BOARD_PATTERN` - Complete board layout pattern
+  - `BOARD_PATTERN` - Complete board layout pattern (tile counts auto-calculated)
+**Helper Function**: `getTileDistribution()` returns tile counts from pattern
 **Validation**: Automatically validates configuration before generation
 **Note**: This replaces the old hardcoded `generateTiles()` function
 

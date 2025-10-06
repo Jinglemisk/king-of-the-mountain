@@ -203,12 +203,11 @@ Edit `src/data/cards.ts`:
 ### Modifying Board Layout
 
 Edit `src/data/BoardLayout.ts` to easily customize:
-- Total number of tiles (default: 20)
-- Tile type distribution (treasure, luck, sanctuary)
-- Board pattern and layout
-- Sanctuary tile positions
+- **Total number of tiles** (default: 20) - Change `BOARD_CONFIG.totalTiles`
+- **Board pattern** - Edit the `BOARD_PATTERN` array to rearrange tiles
+- **Sanctuary positions** - Update `BOARD_CONFIG.sanctuaryTiles`
 
-The centralized configuration makes it simple to adjust the board without touching game logic.
+Tile counts are **automatically calculated** from the pattern - no manual counting needed!
 
 ## 📜 License
 

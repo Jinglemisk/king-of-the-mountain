@@ -22,23 +22,23 @@ export const BOARD_CONFIG = {
 };
 
 // ============================================================================
-// TILE DISTRIBUTION
+// TILE DISTRIBUTION (AUTO-CALCULATED)
 // ============================================================================
 
 /**
- * Distribution of tile types across the board
- * This reflects the count of each tile type in the pattern
+ * Calculate tile distribution from the pattern
+ * This is automatically computed from BOARD_PATTERN - no manual maintenance needed!
+ * @returns Object with counts of each tile type
  */
-export const TILE_DISTRIBUTION = {
-  start: 1,        // Starting tile
-  treasure1: 4,    // Tier 1 treasure tiles
-  treasure2: 3,    // Tier 2 treasure tiles
-  treasure3: 3,    // Tier 3 treasure tiles
-  luck: 5,         // Luck/chance tiles
-  sanctuary: 3,    // Safe sanctuary tiles
-  final: 1,        // Final/winning tile
-  // Note: All enemy tiles have been replaced with other tile types
-};
+export function getTileDistribution(): Record<TileType, number> {
+  const distribution: Partial<Record<TileType, number>> = {};
+
+  BOARD_PATTERN.forEach(type => {
+    distribution[type] = (distribution[type] || 0) + 1;
+  });
+
+  return distribution as Record<TileType, number>;
+}
 
 // ============================================================================
 // BOARD PATTERN
@@ -119,19 +119,8 @@ export function validateBoardLayout(): boolean {
     }
   }
 
-  // Count tiles in pattern and compare to distribution
-  const patternCounts: Record<string, number> = {};
-  BOARD_PATTERN.forEach(type => {
-    patternCounts[type] = (patternCounts[type] || 0) + 1;
-  });
-
-  for (const [type, count] of Object.entries(TILE_DISTRIBUTION)) {
-    if (patternCounts[type] !== count) {
-      throw new Error(
-        `Tile distribution mismatch for ${type}: expected ${count}, found ${patternCounts[type] || 0}`
-      );
-    }
-  }
+  // Validation passes - distribution is auto-calculated from pattern
+  // No need to validate counts since pattern is the single source of truth
 
   return true;
 }
@@ -203,8 +192,8 @@ export function isSanctuaryTile(position: number): boolean {
 // Export everything for easy access
 export default {
   BOARD_CONFIG,
-  TILE_DISTRIBUTION,
   BOARD_PATTERN,
+  getTileDistribution,
   validateBoardLayout,
   generateBoardTiles,
   getTileByPosition,
