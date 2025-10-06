@@ -13,10 +13,12 @@ interface ActionButtonsProps {
   playersOnSameTile: Record<string, Player>;
   unconsciousPlayersOnTile: Record<string, Player>;
   isSanctuary: boolean;
+  hasAmbush: boolean;
   onMove: () => void;
   onSleep: () => void;
   onShowDuelModal: () => void;
   onLootPlayer: (playerId: string) => void;
+  onPlaceAmbush: () => void;
   onEndTurn: () => void;
 }
 
@@ -27,10 +29,12 @@ export function ActionButtons({
   playersOnSameTile,
   unconsciousPlayersOnTile,
   isSanctuary,
+  hasAmbush,
   onMove,
   onSleep,
   onShowDuelModal,
   onLootPlayer,
+  onPlaceAmbush,
   onEndTurn,
 }: ActionButtonsProps) {
   if (!isMyTurn) {
@@ -81,6 +85,14 @@ export function ActionButtons({
             variant="secondary"
           >
             💰 Loot Unconscious Player
+          </Button>
+        )}
+        {hasAmbush && (
+          <Button
+            onClick={onPlaceAmbush}
+            variant="secondary"
+          >
+            🃏 Place Ambush
           </Button>
         )}
         <Button onClick={() => {}} variant="secondary" disabled>

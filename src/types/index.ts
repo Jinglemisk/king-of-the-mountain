@@ -168,6 +168,8 @@ export interface Tile {
   type: TileType;              // Tile type
   hasTrap?: boolean;           // True if a Trap item is placed here
   trapOwnerId?: string;        // ID of player who placed the trap
+  hasAmbush?: boolean;         // True if an Ambush is placed here
+  ambushOwnerId?: string;      // ID of player who placed the ambush
 }
 
 // ============================================================================

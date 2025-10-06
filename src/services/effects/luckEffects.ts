@@ -23,9 +23,16 @@ export async function moveBack(context: EffectContext): Promise<EffectResult> {
 
   const newPosition = Math.max(0, player.position - value);
 
-  await updateGameState({
+  const updates: any = {
     [`players/${playerId}/position`]: newPosition,
-  });
+  };
+
+  // Clear invisibility if player is moved by effect (Fairy Dust rule)
+  if (player.isInvisible) {
+    updates[`players/${playerId}/isInvisible`] = false;
+  }
+
+  await updateGameState(updates);
 
   await addLog(
     'action',
@@ -56,9 +63,16 @@ export async function moveForward(context: EffectContext): Promise<EffectResult>
 
   const newPosition = Math.min(19, player.position + value);
 
-  await updateGameState({
+  const updates: any = {
     [`players/${playerId}/position`]: newPosition,
-  });
+  };
+
+  // Clear invisibility if player is moved by effect
+  if (player.isInvisible) {
+    updates[`players/${playerId}/isInvisible`] = false;
+  }
+
+  await updateGameState(updates);
 
   await addLog(
     'action',

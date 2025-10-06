@@ -546,7 +546,7 @@ export async function executeCombatRound(
 
   // Get class, equipment, and temp effect bonuses for attacker
   const classBonuses = getClassCombatBonuses(attacker, isVsEnemy);
-  const equipmentBonuses = getEquipmentBonuses(attacker);
+  const equipmentBonuses = getEquipmentBonuses(attacker, isVsEnemy);
   const tempEffectBonuses = getTempEffectCombatBonuses(attacker);
 
   // Roll for attacker
@@ -578,8 +578,8 @@ export async function executeCombatRound(
 
     if (isPlayer) {
       const defPlayer = defender as Player;
-      const defClassBonuses = getClassCombatBonuses(defPlayer, false); // PvP
-      const defEquipmentBonuses = getEquipmentBonuses(defPlayer);
+      const defClassBonuses = getClassCombatBonuses(defPlayer, false); // PvP - fighting another player
+      const defEquipmentBonuses = getEquipmentBonuses(defPlayer, false); // PvP - creatures_only items don't work
       const defTempEffectBonuses = getTempEffectCombatBonuses(defPlayer);
       defAttackBonus = defClassBonuses.attackBonus + defEquipmentBonuses.attackBonus + defTempEffectBonuses.attackBonus;
       defDefenseBonus = defClassBonuses.defenseBonus + defEquipmentBonuses.defenseBonus + defTempEffectBonuses.defenseBonus;

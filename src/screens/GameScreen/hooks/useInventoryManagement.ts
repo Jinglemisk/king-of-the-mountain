@@ -184,9 +184,22 @@ export function useInventoryManagement({
       const inventory = normalizeInventory(currentPlayer.inventory, currentPlayer.class);
       inventory[inventoryIndex] = null;
 
-      await updateGameState(gameState.lobbyCode, {
+      const updates: any = {
         [`players/${playerId}/inventory`]: normalizeInventory(inventory, currentPlayer.class),
-      });
+      };
+
+      // Handle items that return to deck bottom (Luck Charm, Smoke Bomb)
+      if (result.data?.requiresReturn && result.data?.returnDeck) {
+        const deckKey = result.data.returnDeck;
+        const currentDeck = gameState[deckKey as keyof typeof gameState] as any[];
+
+        // Add item to bottom of deck
+        if (Array.isArray(currentDeck)) {
+          updates[deckKey] = [...currentDeck, item];
+        }
+      }
+
+      await updateGameState(gameState.lobbyCode, updates);
     }
   };
 

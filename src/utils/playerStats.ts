@@ -9,9 +9,10 @@ import { getTempEffectCombatBonuses } from './tempEffects';
 /**
  * Calculate equipment bonuses for attack and defense
  * @param player - The player
+ * @param isVsEnemy - True if fighting enemies (for creatures_only items like Boogey-Bane)
  * @returns Object with attack and defense bonuses from equipment
  */
-export function getEquipmentBonuses(player: Player): {
+export function getEquipmentBonuses(player: Player, isVsEnemy: boolean = true): {
   attackBonus: number;
   defenseBonus: number;
 } {
@@ -24,15 +25,25 @@ export function getEquipmentBonuses(player: Player): {
     wearable: null,
   };
 
-  if (equipment.holdable1) {
+  // Helper function to check if item bonus should apply
+  const shouldApplyBonus = (item: any) => {
+    // If item has creatures_only special, only apply bonus vs enemies
+    if (item.special === 'creatures_only') {
+      return isVsEnemy;
+    }
+    // All other items apply in all combat
+    return true;
+  };
+
+  if (equipment.holdable1 && shouldApplyBonus(equipment.holdable1)) {
     attackBonus += equipment.holdable1.attackBonus || 0;
     defenseBonus += equipment.holdable1.defenseBonus || 0;
   }
-  if (equipment.holdable2) {
+  if (equipment.holdable2 && shouldApplyBonus(equipment.holdable2)) {
     attackBonus += equipment.holdable2.attackBonus || 0;
     defenseBonus += equipment.holdable2.defenseBonus || 0;
   }
-  if (equipment.wearable) {
+  if (equipment.wearable && shouldApplyBonus(equipment.wearable)) {
     attackBonus += equipment.wearable.attackBonus || 0;
     defenseBonus += equipment.wearable.defenseBonus || 0;
   }
@@ -87,7 +98,7 @@ export function calculatePlayerStats(
   const BASE_ATTACK = 1;
   const BASE_DEFENSE = 1;
 
-  const equipmentBonuses = getEquipmentBonuses(player);
+  const equipmentBonuses = getEquipmentBonuses(player, isVsEnemy);
   const classBonuses = includeClassBonuses
     ? getClassCombatBonuses(player, isVsEnemy)
     : { attackBonus: 0, defenseBonus: 0 };

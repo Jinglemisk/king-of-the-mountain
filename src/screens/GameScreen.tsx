@@ -12,6 +12,7 @@ import { Modal } from '../components/ui/Modal';
 import { CardRevealModal } from '../components/game/CardRevealModal';
 import { CombatModal } from '../components/game/CombatModal';
 import { InventoryFullModal } from '../components/game/InventoryFullModal';
+import { JinnThiefModal } from '../components/game/JinnThiefModal';
 import { updateGameState, addLog } from '../state/gameSlice';
 import { shouldSkipTurn } from '../utils/tempEffects';
 
@@ -61,6 +62,13 @@ export function GameScreen({ gameState, playerId }: GameScreenProps) {
   // State for PvP looting
   const [showLootingModal, setShowLootingModal] = useState(false);
   const [defeatedPlayerId, setDefeatedPlayerId] = useState<string | null>(null);
+
+  // State for Jinn Thief item selection
+  const [showJinnThiefModal, setShowJinnThiefModal] = useState(false);
+
+  // State for Instinct activation
+  const [showInstinctModal, setShowInstinctModal] = useState(false);
+  const [instinctPosition, setInstinctPosition] = useState<number>(0);
 
   // Get current player and turn info
   const currentPlayer = gameState.players[playerId];
@@ -133,6 +141,9 @@ export function GameScreen({ gameState, playerId }: GameScreenProps) {
     setDefeatedPlayerId,
     setShowLootingModal,
     setPendingItems,
+    setShowJinnThiefModal,
+    setShowInstinctModal,
+    setInstinctPosition,
     handleEndTurn: () => turnActionsRef.current.handleEndTurn(),
   });
 
@@ -197,6 +208,25 @@ export function GameScreen({ gameState, playerId }: GameScreenProps) {
     }
   }, [isMyTurn, currentPlayer.isAlive, currentPlayer.tempEffects, gameState.status]);
 
+  /**
+   * Clear invisibility at turn start (Fairy Dust effect)
+   */
+  useEffect(() => {
+    // If it's my turn and I'm invisible, clear invisibility
+    if (isMyTurn && currentPlayer.isInvisible && gameState.status === 'active') {
+      updateGameState(gameState.lobbyCode, {
+        [`players/${playerId}/isInvisible`]: false,
+      });
+
+      addLog(
+        gameState.lobbyCode,
+        'action',
+        `✨ ${currentPlayer.nickname}'s invisibility wore off!`,
+        playerId
+      );
+    }
+  }, [isMyTurn, currentPlayer.isInvisible, gameState.status]);
+
   // Check for winner
   if (gameState.winnerId) {
     const winner = gameState.players[gameState.winnerId];
@@ -260,10 +290,12 @@ export function GameScreen({ gameState, playerId }: GameScreenProps) {
           playersOnSameTile={playerUtils.getPlayersOnSameTile()}
           unconsciousPlayersOnTile={playerUtils.getUnconsciousPlayersOnSameTile()}
           isSanctuary={playerUtils.getCurrentTile()?.type === 'sanctuary'}
+          hasAmbush={turnActions.hasAmbush()}
           onMove={turnActions.handleMove}
           onSleep={turnActions.handleSleep}
           onShowDuelModal={() => setShowDuelModal(true)}
           onLootPlayer={turnActions.handleLootPlayer}
+          onPlaceAmbush={turnActions.handlePlaceAmbush}
           onEndTurn={turnActions.handleEndTurn}
         />
       </div>
@@ -349,6 +381,52 @@ export function GameScreen({ gameState, playerId }: GameScreenProps) {
         onDiscard={inventoryManagement.handleInventoryDiscard}
         maxSlots={currentPlayer.inventory ? currentPlayer.inventory.length : 4}
       />
+
+      {/* Jinn Thief Item Selection Modal */}
+      <JinnThiefModal
+        isOpen={showJinnThiefModal}
+        player={currentPlayer}
+        onSelectItem={turnActions.handleJinnThiefItemSelection}
+      />
+
+      {/* Instinct Activation Modal */}
+      <Modal
+        isOpen={showInstinctModal}
+        onClose={() => {}}
+        title="🃏 Use Instinct Card?"
+        size="medium"
+        canClose={false}
+      >
+        <div className="instinct-modal">
+          <p>You have an Instinct card! Adjust your position by +1 or -1 tile.</p>
+          <p>Current position: {instinctPosition}</p>
+          <div className="instinct-actions">
+            <Button
+              onClick={() => turnActions.handleInstinctChoice(-1)}
+              variant="primary"
+              fullWidth
+              disabled={instinctPosition === 0}
+            >
+              Move Back (-1 tile)
+            </Button>
+            <Button
+              onClick={() => turnActions.handleInstinctChoice(1)}
+              variant="primary"
+              fullWidth
+              disabled={instinctPosition === 19}
+            >
+              Move Forward (+1 tile)
+            </Button>
+            <Button
+              onClick={() => turnActions.handleInstinctChoice(0)}
+              variant="secondary"
+              fullWidth
+            >
+              Skip (Don't Use)
+            </Button>
+          </div>
+        </div>
+      </Modal>
 
       {/* Duel Target Selection Modal */}
       <Modal
