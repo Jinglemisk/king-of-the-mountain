@@ -5,6 +5,7 @@
  */
 
 import type { Item, LuckCard } from '../types';
+import { shuffleDeck } from '../utils/shuffle';
 
 /**
  * Creates a unique item instance
@@ -333,20 +334,6 @@ export const LUCK_CARD_FACTORIES = [
 // ============================================================================
 // DECK BUILDING FUNCTIONS
 // ============================================================================
-
-/**
- * Shuffle an array using Fisher-Yates algorithm
- * @param deck - Array to shuffle
- * @returns Shuffled array
- */
-function shuffleDeck<T>(deck: T[]): T[] {
-  const shuffled = [...deck];
-  for (let i = shuffled.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-  }
-  return shuffled;
-}
 
 /**
  * Build a shuffled treasure deck for a given tier

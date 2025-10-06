@@ -164,7 +164,9 @@ king-of-the-mountain/
 │   │   ├── game/              # Game-specific components
 │   │   │   ├── Board.tsx      # Game board with 20 tiles
 │   │   │   ├── Card.tsx       # Card display component
-│   │   │   ├── Dice.tsx       # Dice roller component
+│   │   │   ├── CardRevealModal.tsx  # Card reveal display
+│   │   │   ├── CombatModal.tsx      # Combat interface
+│   │   │   ├── InventoryFullModal.tsx # Overflow handling
 │   │   │   └── PlayerToken.tsx # Player token on board
 │   │   │
 │   │   └── ui/                # General UI components
@@ -173,6 +175,7 @@ king-of-the-mountain/
 │   │       └── Modal.tsx      # Modal dialog
 │   │
 │   ├── data/                  # Easily editable game data
+│   │   ├── BoardLayout.ts     # Board configuration & generation
 │   │   ├── cards.ts           # Treasure & Luck Cards
 │   │   ├── classes.ts         # Player classes
 │   │   └── enemies.ts         # Enemy cards
@@ -186,13 +189,21 @@ king-of-the-mountain/
 │   ├── screens/               # Top-level screen components
 │   │   ├── WelcomeScreen.tsx  # Nickname & lobby code entry
 │   │   ├── LobbyScreen.tsx    # Class selection & ready up
-│   │   └── GameScreen.tsx     # Main gameplay screen
+│   │   ├── GameScreen.tsx     # Main gameplay screen
+│   │   └── GameScreen/        # GameScreen modules (future)
+│   │       ├── hooks/         # GameScreen-specific hooks
+│   │       └── components/    # GameScreen sub-components
 │   │
 │   ├── state/                 # State management
 │   │   └── gameSlice.ts       # Firebase update functions
 │   │
 │   ├── types/                 # TypeScript definitions
 │   │   └── index.ts           # All game types & interfaces
+│   │
+│   ├── utils/                 # Shared utility functions ✨ NEW!
+│   │   ├── inventory.ts       # Inventory normalization
+│   │   ├── playerStats.ts     # Combat stat calculations
+│   │   └── shuffle.ts         # Deck shuffling
 │   │
 │   ├── App.tsx                # Main app router
 │   ├── main.tsx               # React entry point
@@ -560,6 +571,100 @@ const enemies = await drawEnemiesForTile('ABC123', 2); // Might return 2 T1 or 1
 **Description**: Creates a log entry object with timestamp and unique ID
 **Returns**: LogEntry object
 
+---
+
+### `src/utils/playerStats.ts` ✨ NEW!
+
+#### `getEquipmentBonuses(player: Player): { attackBonus: number; defenseBonus: number }`
+**Location**: `src/utils/playerStats.ts:13`
+**Description**: Calculate attack and defense bonuses from equipped items
+**Parameters**:
+- `player` - The player object
+**Returns**: Object with attackBonus and defenseBonus from all equipped items
+**Example**:
+```typescript
+const bonuses = getEquipmentBonuses(player);
+// Returns: { attackBonus: 3, defenseBonus: 2 }
+```
+
+#### `getClassCombatBonuses(player: Player, isVsEnemy: boolean): { attackBonus: number; defenseBonus: number }`
+**Location**: `src/utils/playerStats.ts:46`
+**Description**: Calculate class-specific combat bonuses
+**Parameters**:
+- `player` - The player object
+- `isVsEnemy` - True if fighting enemies (PvE), false if fighting players (PvP)
+**Returns**: Object with class-specific attack and defense bonuses
+**Logic**:
+- Hunter: +1 Attack vs Enemies
+- Gladiator: +1 Attack vs Players
+- Warden: +1 Defense vs Enemies
+- Guard: +1 Defense vs Players
+**Example**:
+```typescript
+const bonuses = getClassCombatBonuses(hunterPlayer, true);
+// Returns: { attackBonus: 1, defenseBonus: 0 }
+```
+
+#### `calculatePlayerStats(player: Player, isVsEnemy?: boolean, includeClassBonuses?: boolean): { attack: number; defense: number }`
+**Location**: `src/utils/playerStats.ts:73`
+**Description**: Calculate total player attack and defense (base + equipment + class bonuses)
+**Parameters**:
+- `player` - The player object
+- `isVsEnemy` - Whether fighting enemies (default: true)
+- `includeClassBonuses` - Whether to include class bonuses (default: true)
+**Returns**: Object with total attack and defense values
+**Base Values**: Attack = 1, Defense = 1
+**Example**:
+```typescript
+// Get full combat stats
+const stats = calculatePlayerStats(player, true);
+// Returns: { attack: 4, defense: 3 }
+
+// Get equipment stats only (for display)
+const displayStats = calculatePlayerStats(player, true, false);
+// Returns: { attack: 3, defense: 2 } (no class bonuses)
+```
+
+---
+
+### `src/utils/shuffle.ts` ✨ NEW!
+
+#### `shuffleDeck<T>(deck: T[]): T[]`
+**Location**: `src/utils/shuffle.ts:10`
+**Description**: Shuffle an array using Fisher-Yates algorithm
+**Parameters**:
+- `deck` - Array to shuffle (generic type T)
+**Returns**: New shuffled array (does not mutate original)
+**Example**:
+```typescript
+const shuffledEnemies = shuffleDeck(enemyDeck);
+const shuffledCards = shuffleDeck(treasureDeck);
+```
+
+---
+
+### `src/utils/inventory.ts` ✨ NEW!
+
+#### `normalizeInventory(inventory: (Item | null)[] | undefined | null, playerClass: PlayerClass): (Item | null)[]`
+**Location**: `src/utils/inventory.ts:14`
+**Description**: Normalize inventory array to ensure correct number of slots
+**Parameters**:
+- `inventory` - Current inventory array (may be incomplete or empty)
+- `playerClass` - Player's class (Porter gets 5 slots, others get 4)
+**Returns**: Normalized inventory array with proper length, padded with null
+**Example**:
+```typescript
+// Normal player with partial inventory
+const normalized = normalizeInventory([item1, item2], 'Scout');
+// Returns: [item1, item2, null, null]
+
+// Porter with full inventory
+const porterInv = normalizeInventory([item1, item2, item3, item4], 'Porter');
+// Returns: [item1, item2, item3, item4, null]
+```
+
+---
+
 #### `startCombat(lobbyCode, attackerId, defenders, canRetreat): Promise<void>`
 **Location**: `src/state/gameSlice.ts:559`
 **Description**: Initialize combat state between a player and enemies or other players
@@ -587,7 +692,8 @@ await startCombat('ABC123', playerId, [targetPlayer], false);
 **Returns**: Promise resolving to CombatLogEntry with round results
 **Side Effects**:
 - Rolls d6 for attack/defense for all combatants
-- Applies class bonuses (Hunter/Gladiator/Warden/Guard) and equipment bonuses
+- Applies class bonuses via `getClassCombatBonuses()` from `utils/playerStats.ts`
+- Applies equipment bonuses via `getEquipmentBonuses()` from `utils/playerStats.ts`
 - Calculates damage (1 HP if attack > defense)
 - Updates HP in Firebase
 - Checks Monk revival ability
@@ -672,7 +778,7 @@ function GameComponent() {
 **Description**: Builds and shuffles an enemy deck for a given tier
 **Parameters**:
 - `tier` - Enemy tier (1, 2, or 3)
-**Returns**: Shuffled array of Enemy objects
+**Returns**: Shuffled array of Enemy objects using `shuffleDeck()` from `utils/shuffle.ts`
 **Example**:
 ```typescript
 const tier1Enemies = buildEnemyDeck(1); // 18 tier 1 enemies, shuffled
@@ -703,11 +809,11 @@ const composition = getEnemyComposition(2);
 ### `src/data/cards.ts`
 
 #### `buildTreasureDeck(tier: 1 | 2 | 3): Item[]`
-**Location**: `src/data/cards.ts:356`
+**Location**: `src/data/cards.ts:339`
 **Description**: Builds and shuffles a treasure deck for a given tier
 **Parameters**:
 - `tier` - Treasure tier (1, 2, or 3)
-**Returns**: Shuffled array of Item objects
+**Returns**: Shuffled array of Item objects using `shuffleDeck()` from `utils/shuffle.ts`
 **Deck Sizes**:
 - Tier 1: 24 items
 - Tier 2: 18 items
@@ -718,9 +824,9 @@ const tier1Treasures = buildTreasureDeck(1); // 24 tier 1 items, shuffled
 ```
 
 #### `buildLuckDeck(): LuckCard[]`
-**Location**: `src/data/cards.ts:375`
+**Location**: `src/data/cards.ts:358`
 **Description**: Builds and shuffles the Luck Card deck
-**Returns**: Shuffled array of 32 LuckCard objects
+**Returns**: Shuffled array of 32 LuckCard objects using `shuffleDeck()` from `utils/shuffle.ts`
 **Example**:
 ```typescript
 const luckDeck = buildLuckDeck(); // 32 Luck Cards, shuffled
@@ -825,23 +931,26 @@ console.log(scoutClass?.specialEffect); // "Immune to Trap items..."
 - `activeTab`: 'logs' | 'chat'
 
 **Key Functions**:
-- `handleMove()` - Rolls d4, moves player forward, checks for traps, resolves tile effects (location: line 394)
-- `handleSleep()` - Restores player to full HP (location: line 467)
-- `handleEndTurn()` - Advances to next player's turn (location: line 554)
-- `handleUseTrap(item, inventoryIndex)` - Places trap on current tile (location: line 526)
-- `resolveTileEffect(tile)` - Resolves tile effects (enemy/treasure/luck) (location: line 319)
-- `addItemToInventory(items)` - Adds items to first available slots (location: line 81)
-- `handleEquipItem()` - Equips item from inventory to equipment slot (location: line 177)
-- `handleUnequipItem()` - Unequips item from equipment to inventory (location: line 231)
-- `handleSwapEquippedItems()` - Swaps items between equipment slots (location: line 280)
-- `handleCardRevealClose()` - Handles card reveal modal close (location: line 443)
-- `handleInventoryDiscard(items)` - Handles inventory overflow (location: line 505)
-- `handleCombatRetreat()` - Moves player back 6 tiles (location: line 580)
-- `renderEquipment()` - Renders equipped items UI with drag-and-drop (location: line 641)
-- `renderInventory()` - Renders backpack inventory UI with drag-and-drop and trap button (location: line 825)
-- `renderStats()` - Calculates and displays player stats (location: line 876)
-- `renderActions()` - Renders action buttons for current turn (location: line 908)
-- `renderLogs()` - Renders event logs panel (location: line 946)
+- `handleMove()` - Rolls d4, moves player forward, checks for traps, resolves tile effects
+- `handleSleep()` - Restores player to full HP
+- `handleEndTurn()` - Advances to next player's turn
+- `handleUseTrap(item, inventoryIndex)` - Places trap on current tile
+- `resolveTileEffect(tile)` - Resolves tile effects (enemy/treasure/luck)
+- `addItemToInventory(items)` - Adds items to first available slots, uses `normalizeInventory()` from `utils/inventory.ts`
+- `handleEquipItem()` - Equips item from inventory to equipment slot
+- `handleUnequipItem()` - Unequips item from equipment to inventory
+- `handleSwapEquippedItems()` - Swaps items between equipment slots
+- `handleCardRevealClose()` - Handles card reveal modal close
+- `handleInventoryDiscard(items)` - Handles inventory overflow
+- `handleCombatAttack()` - Execute combat attack round
+- `handleCombatRetreat()` - Retreat from combat (moves back 6 tiles)
+- `handleCombatEnd()` - End combat and handle outcomes
+- `handleDuel()` - Initiate PvP duel with another player
+- `renderEquipment()` - Renders equipped items UI with drag-and-drop
+- `renderInventory()` - Renders backpack inventory UI with drag-and-drop and trap button, uses `normalizeInventory()` from `utils/inventory.ts`
+- `renderStats()` - Displays player stats using `calculatePlayerStats()` from `utils/playerStats.ts`
+- `renderActions()` - Renders action buttons for current turn
+- `renderLogs()` - Renders event logs panel
 
 **Tile Resolution Flow**:
 1. Player moves to new tile
@@ -869,9 +978,9 @@ console.log(scoutClass?.specialEffect); // "Immune to Trap items..."
    - Other classes trigger trap (skip tile effect, trap is removed)
 
 **Current Limitations**:
-- Combat modal is provisional (no combat logic yet)
 - Most item special abilities not yet implemented (except Trap)
 - Luck Card effects are not implemented yet (cards are drawn and displayed only)
+- Trade and Chat systems are stubbed for future implementation
 
 ---
 
@@ -989,21 +1098,24 @@ console.log(scoutClass?.specialEffect); // "Immune to Trap items..."
 ### `src/components/game/CombatModal.tsx`
 
 #### `<CombatModal />`
-**Location**: `src/components/game/CombatModal.tsx:51`
-**Description**: Provisional combat modal for PvE and PvP encounters
+**Location**: `src/components/game/CombatModal.tsx:32`
+**Description**: Fully functional combat modal for PvE and PvP encounters
 **Props**:
 - `isOpen: boolean` - Whether modal is visible
-- `player: Player` - The player in combat
-- `opponents: (Enemy | Player)[]` - Array of enemies or players being fought
-- `onRetreat?: () => void` - Optional callback for retreat action
-- `onClose?: () => void` - Optional callback when combat ends
+- `gameState: GameState` - Current game state
+- `playerId: string` - Current player's ID
+- `onAttack: (targetId?: string) => void` - Callback for attack action
+- `onRetreat: () => void` - Callback for retreat action
+- `onEndCombat: () => void` - Callback when combat ends
 
-**Display**:
-- Shows player on left, opponents on right
-- Displays HP, ATK, DEF for both sides
-- Shows enemy cards for PvE
-- Retreat button moves player back 6 tiles
-- **Note**: Combat logic not implemented yet - this is a provisional UI
+**Features**:
+- Real-time combat with attack button
+- Multiple enemy targeting with click-to-select
+- Round-by-round combat log display
+- Calculates stats using `calculatePlayerStats()` from `utils/playerStats.ts`
+- Victory/defeat screens
+- Retreat functionality
+- Visual feedback for selected targets and defeated enemies
 
 ---
 
@@ -1395,15 +1507,15 @@ This would require adding Firebase Authentication, which is currently not implem
 1. ✅ ~~Implement tile effect resolution~~ - **COMPLETED**
 2. ✅ ~~Card drawing with deck management~~ - **COMPLETED**
 3. ✅ ~~Basic inventory auto-add and overflow handling~~ - **COMPLETED**
-4. Implement combat system (PvE) - provisional modal exists, add combat logic
-5. Implement Luck Card effects - cards are drawn, need to apply effects
-6. Manual inventory management - equip/unequip items
+4. ✅ ~~Implement combat system (PvE & PvP)~~ - **COMPLETED**
+5. ✅ ~~Manual inventory management - equip/unequip items~~ - **COMPLETED**
+6. ✅ ~~Code refactoring and optimization~~ - **COMPLETED**
 
 ### Short-term Goals (Week 2-3)
-4. Implement all item special effects
-5. Implement all Luck Card effects
-6. Implement trading system
-7. Add PvP combat
+7. Implement Luck Card effects - cards are drawn, need to apply effects
+8. Implement all item special effects
+9. Implement trading system
+10. Add chat system
 
 ### Medium-term Goals (Month 1)
 8. Polish UI/UX (animations, sounds, better feedback)
@@ -1423,7 +1535,62 @@ This would require adding Firebase Authentication, which is currently not implem
 
 ## Recent Updates
 
-### Complete Combat System Implementation (Latest - December 2024)
+### Code Refactoring & Optimization (Latest - October 2025)
+
+**What was refactored:**
+
+1. **Created Shared Utility Files** (`src/utils/`)
+   - **`playerStats.ts`** - Consolidated all player stat calculations
+     - `getEquipmentBonuses()` - Calculate equipment bonuses
+     - `getClassCombatBonuses()` - Calculate class-specific combat bonuses
+     - `calculatePlayerStats()` - Calculate total attack/defense (base + bonuses)
+   - **`shuffle.ts`** - Generic Fisher-Yates shuffle implementation
+     - `shuffleDeck<T>()` - Used by all deck building functions
+   - **`inventory.ts`** - Inventory management utilities
+     - `normalizeInventory()` - Ensure correct inventory slot count
+
+2. **Eliminated Code Duplication**
+   - Removed duplicate stats calculation from:
+     - `gameSlice.ts` (removed `getClassCombatBonuses()` and `getEquipmentBonuses()`)
+     - `CombatModal.tsx` (removed `calculateStats()`)
+     - `GameScreen.tsx` (removed inline stats calculation)
+   - Removed duplicate shuffle function from:
+     - `enemies.ts` (removed local `shuffleDeck()`)
+     - `cards.ts` (removed local `shuffleDeck()`)
+   - Extracted `normalizeInventory()` from GameScreen.tsx to utility
+
+3. **Cleaned Up Dead Code**
+   - Removed 25+ lines of commented-out code
+   - Deleted obsolete TODO comments
+   - Removed unused function implementations
+
+4. **Updated All Imports**
+   - `gameSlice.ts` now imports from `utils/playerStats.ts`
+   - `CombatModal.tsx` now imports from `utils/playerStats.ts`
+   - `GameScreen.tsx` now imports from `utils/playerStats.ts` and `utils/inventory.ts`
+   - `enemies.ts` now imports from `utils/shuffle.ts`
+   - `cards.ts` now imports from `utils/shuffle.ts`
+
+**Code Quality Improvements:**
+- ✅ **Zero TypeScript errors** after refactoring
+- ✅ **~165 lines of duplicate/dead code removed**
+- ✅ **Single source of truth** for all utility functions
+- ✅ **Better code organization** with clear separation of concerns
+- ✅ **Easier to maintain** with consolidated logic
+
+**Testing:**
+- ✅ Build passes with no errors
+- ✅ All functionality preserved
+- ✅ No breaking changes
+
+**Future Modularization:**
+- GameScreen.tsx modularization plan created (`GAMESCREEN_MODULARIZATION_PLAN.md`)
+- Target: Break 1,424-line file into modular structure (~400 line main file + hooks + components)
+- See `REFACTORING_COMPLETED.md` for full details
+
+---
+
+### Complete Combat System Implementation (December 2024)
 
 **What was implemented:**
 
@@ -1432,8 +1599,8 @@ This would require adding Firebase Authentication, which is currently not implem
    - `executeCombatRound()` - Execute combat rounds with d6 dice rolls
    - `endCombat()` - Handle victory/defeat and loot distribution
    - `rollEnemyLoot()` - Roll for enemy loot drops based on tier
-   - `getClassCombatBonuses()` - Calculate class-specific combat bonuses
-   - `getEquipmentBonuses()` - Calculate equipment bonuses
+   - Uses `getClassCombatBonuses()` from `utils/playerStats.ts`
+   - Uses `getEquipmentBonuses()` from `utils/playerStats.ts`
 
 2. **Interactive Combat Modal** (`src/components/game/CombatModal.tsx`)
    - Fully functional combat UI with attack button

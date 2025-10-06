@@ -23,6 +23,8 @@ import {
   executeCombatRound,
   endCombat,
 } from '../state/gameSlice';
+import { calculatePlayerStats } from '../utils/playerStats';
+import { normalizeInventory } from '../utils/inventory';
 
 interface GameScreenProps {
   gameState: GameState;
@@ -102,32 +104,13 @@ export function GameScreen({ gameState, playerId }: GameScreenProps) {
   }, [isMyTurn, currentPlayer.isAlive, gameState.status]);
 
   /**
-   * Helper: Normalize inventory array to always have correct number of slots
-   * Ensures inventory is always an array with 4 slots (or 5 for Porter), padding with null
-   * @param inventory - Current inventory array (may be incomplete or empty)
-   * @returns Normalized inventory array with proper length
-   */
-  const normalizeInventory = (inventory: (Item | null)[] | undefined | null): (Item | null)[] => {
-    const maxSlots = currentPlayer.class === 'Porter' ? 5 : 4;
-    const currentInventory = inventory || [];
-
-    // Create array with max slots, preserving existing items
-    const normalized: (Item | null)[] = [];
-    for (let i = 0; i < maxSlots; i++) {
-      normalized[i] = currentInventory[i] || null;
-    }
-
-    return normalized;
-  };
-
-  /**
    * Helper: Add items to first available inventory slots
    * @param items - Items to add
    * @returns Object with modified inventory, items that fit, and items that overflow
    */
   const addItemToInventory = (items: Item[]): { inventory: (Item | null)[]; added: Item[]; overflow: Item[] } => {
     // Normalize inventory to ensure proper slot count
-    const inventory = normalizeInventory(currentPlayer.inventory);
+    const inventory = normalizeInventory(currentPlayer.inventory, currentPlayer.class);
 
     const added: Item[] = [];
     const overflow: Item[] = [];
@@ -146,36 +129,6 @@ export function GameScreen({ gameState, playerId }: GameScreenProps) {
 
     return { inventory, added, overflow };
   };
-
-  /**
-   * Helper: Calculate player's total attack and defense from equipment
-   * Note: This function is kept for future use in combat logic
-   */
-  // const calculatePlayerStats = (): { attack: number; defense: number } => {
-  //   let attack = 1; // Base attack
-  //   let defense = 1; // Base defense
-
-  //   if (!currentPlayer.equipment) {
-  //     return { attack, defense };
-  //   }
-
-  //   const equipment = currentPlayer.equipment;
-
-  //   if (equipment.holdable1) {
-  //     attack += equipment.holdable1.attackBonus || 0;
-  //     defense += equipment.holdable1.defenseBonus || 0;
-  //   }
-  //   if (equipment.holdable2) {
-  //     attack += equipment.holdable2.attackBonus || 0;
-  //     defense += equipment.holdable2.defenseBonus || 0;
-  //   }
-  //   if (equipment.wearable) {
-  //     attack += equipment.wearable.attackBonus || 0;
-  //     defense += equipment.wearable.defenseBonus || 0;
-  //   }
-
-  //   return { attack, defense };
-  // };
 
   /**
    * Validation: Check if an item can be equipped in a specific slot
@@ -253,7 +206,7 @@ export function GameScreen({ gameState, playerId }: GameScreenProps) {
     // Update Firebase with normalized inventory
     await updateGameState(gameState.lobbyCode, {
       [`players/${playerId}/equipment`]: updatedEquipment,
-      [`players/${playerId}/inventory`]: normalizeInventory(inventory),
+      [`players/${playerId}/inventory`]: normalizeInventory(inventory, currentPlayer.class),
     });
   };
 
@@ -295,7 +248,7 @@ export function GameScreen({ gameState, playerId }: GameScreenProps) {
     // Update Firebase with normalized inventory
     await updateGameState(gameState.lobbyCode, {
       [`players/${playerId}/equipment`]: updatedEquipment,
-      [`players/${playerId}/inventory`]: normalizeInventory(inventory),
+      [`players/${playerId}/inventory`]: normalizeInventory(inventory, currentPlayer.class),
     });
 
     await addLog(
@@ -511,8 +464,6 @@ export function GameScreen({ gameState, playerId }: GameScreenProps) {
       `${currentPlayer.nickname} rested and restored to full HP`,
       playerId
     );
-
-    // TODO: End turn
   };
 
   /**
@@ -547,7 +498,7 @@ export function GameScreen({ gameState, playerId }: GameScreenProps) {
    */
   const handleInventoryUpdate = async (inventory: (Item | null)[]) => {
     // Normalize before saving to ensure proper slot count
-    const normalizedInventory = normalizeInventory(inventory);
+    const normalizedInventory = normalizeInventory(inventory, currentPlayer.class);
 
     await updateGameState(gameState.lobbyCode, {
       [`players/${playerId}/inventory`]: normalizedInventory,
@@ -568,7 +519,7 @@ export function GameScreen({ gameState, playerId }: GameScreenProps) {
    */
   const handleInventoryDiscard = async (itemsToKeep: (Item | null)[]) => {
     await updateGameState(gameState.lobbyCode, {
-      [`players/${playerId}/inventory`]: normalizeInventory(itemsToKeep),
+      [`players/${playerId}/inventory`]: normalizeInventory(itemsToKeep, currentPlayer.class),
     });
 
     await addLog(
@@ -615,7 +566,7 @@ export function GameScreen({ gameState, playerId }: GameScreenProps) {
     }
 
     // Remove trap from inventory
-    const inventory = normalizeInventory(currentPlayer.inventory);
+    const inventory = normalizeInventory(currentPlayer.inventory, currentPlayer.class);
     inventory[inventoryIndex] = null;
 
     // Update tile with trap
@@ -628,7 +579,7 @@ export function GameScreen({ gameState, playerId }: GameScreenProps) {
 
     // Update Firebase with normalized inventory
     await updateGameState(gameState.lobbyCode, {
-      [`players/${playerId}/inventory`]: normalizeInventory(inventory),
+      [`players/${playerId}/inventory`]: normalizeInventory(inventory, currentPlayer.class),
       tiles: updatedTiles,
     });
 
@@ -932,7 +883,7 @@ export function GameScreen({ gameState, playerId }: GameScreenProps) {
    */
   const renderInventory = () => {
     // Always normalize inventory to ensure correct slot count
-    const inventory = normalizeInventory(currentPlayer.inventory);
+    const inventory = normalizeInventory(currentPlayer.inventory, currentPlayer.class);
 
     return (
       <div
@@ -983,24 +934,12 @@ export function GameScreen({ gameState, playerId }: GameScreenProps) {
    * Render player stats
    */
   const renderStats = () => {
-    // Calculate total attack and defense from equipment
-    let totalAttack = 1; // Base attack
-    let totalDefense = 1; // Base defense
-
-    const equipment = currentPlayer.equipment || { holdable1: null, holdable2: null, wearable: null };
-
-    if (equipment.holdable1) {
-      totalAttack += equipment.holdable1.attackBonus || 0;
-      totalDefense += equipment.holdable1.defenseBonus || 0;
-    }
-    if (equipment.holdable2) {
-      totalAttack += equipment.holdable2.attackBonus || 0;
-      totalDefense += equipment.holdable2.defenseBonus || 0;
-    }
-    if (equipment.wearable) {
-      totalAttack += equipment.wearable.attackBonus || 0;
-      totalDefense += equipment.wearable.defenseBonus || 0;
-    }
+    // Calculate total attack and defense from equipment only (no class bonuses for inventory display)
+    const { attack: totalAttack, defense: totalDefense } = calculatePlayerStats(
+      currentPlayer,
+      true, // isVsEnemy (default context)
+      false // Don't include class bonuses for inventory display
+    );
 
     return (
       <div className="player-stats">

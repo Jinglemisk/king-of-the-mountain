@@ -20,6 +20,7 @@ import type {
 import { buildEnemyDeck, getEnemyComposition } from '../data/enemies';
 import { buildTreasureDeck, buildLuckDeck } from '../data/cards';
 import { generateBoardTiles } from '../data/BoardLayout';
+import { getEquipmentBonuses, getClassCombatBonuses } from '../utils/playerStats';
 
 /**
  * Create a new game lobby with initial state
@@ -470,54 +471,6 @@ export async function drawEnemiesForTile(
 // ============================================================================
 // COMBAT FUNCTIONS
 // ============================================================================
-
-/**
- * Calculate combat bonuses based on class and combat type
- * @param player - The player
- * @param isVsEnemy - True if fighting enemies, false if fighting players
- * @returns Object with attack and defense bonuses
- */
-function getClassCombatBonuses(player: Player, isVsEnemy: boolean): { attackBonus: number; defenseBonus: number } {
-  let attackBonus = 0;
-  let defenseBonus = 0;
-
-  if (isVsEnemy) {
-    if (player.class === 'Hunter') attackBonus += 1;
-    if (player.class === 'Warden') defenseBonus += 1;
-  } else {
-    if (player.class === 'Gladiator') attackBonus += 1;
-    if (player.class === 'Guard') defenseBonus += 1;
-  }
-
-  return { attackBonus, defenseBonus };
-}
-
-/**
- * Calculate equipment bonuses for attack and defense
- * @param player - The player
- * @returns Object with attack and defense bonuses from equipment
- */
-function getEquipmentBonuses(player: Player): { attackBonus: number; defenseBonus: number } {
-  let attackBonus = 0;
-  let defenseBonus = 0;
-
-  const equipment = player.equipment || { holdable1: null, holdable2: null, wearable: null };
-
-  if (equipment.holdable1) {
-    attackBonus += equipment.holdable1.attackBonus || 0;
-    defenseBonus += equipment.holdable1.defenseBonus || 0;
-  }
-  if (equipment.holdable2) {
-    attackBonus += equipment.holdable2.attackBonus || 0;
-    defenseBonus += equipment.holdable2.defenseBonus || 0;
-  }
-  if (equipment.wearable) {
-    attackBonus += equipment.wearable.attackBonus || 0;
-    defenseBonus += equipment.wearable.defenseBonus || 0;
-  }
-
-  return { attackBonus, defenseBonus };
-}
 
 /**
  * Start combat between a player and enemies or other players

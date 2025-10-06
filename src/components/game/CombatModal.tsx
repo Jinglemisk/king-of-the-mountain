@@ -9,6 +9,7 @@ import type { Player, Enemy, GameState } from '../../types';
 import { Modal } from '../ui/Modal';
 import { Card } from './Card';
 import { Button } from '../ui/Button';
+import { calculatePlayerStats } from '../../utils/playerStats';
 
 interface CombatModalProps {
   isOpen: boolean;
@@ -23,41 +24,6 @@ interface CombatModalProps {
  */
 function isPlayer(opponent: Enemy | Player): opponent is Player {
   return 'nickname' in opponent;
-}
-
-/**
- * Calculate player's total attack and defense from equipment
- */
-function calculateStats(player: Player, isVsEnemy: boolean): { attack: number; defense: number } {
-  let attack = 1; // Base attack
-  let defense = 1; // Base defense
-
-  // Equipment bonuses
-  const equipment = player.equipment || { holdable1: null, holdable2: null, wearable: null };
-
-  if (equipment.holdable1) {
-    attack += equipment.holdable1.attackBonus || 0;
-    defense += equipment.holdable1.defenseBonus || 0;
-  }
-  if (equipment.holdable2) {
-    attack += equipment.holdable2.attackBonus || 0;
-    defense += equipment.holdable2.defenseBonus || 0;
-  }
-  if (equipment.wearable) {
-    attack += equipment.wearable.attackBonus || 0;
-    defense += equipment.wearable.defenseBonus || 0;
-  }
-
-  // Class bonuses
-  if (isVsEnemy) {
-    if (player.class === 'Hunter') attack += 1;
-    if (player.class === 'Warden') defense += 1;
-  } else {
-    if (player.class === 'Gladiator') attack += 1;
-    if (player.class === 'Guard') defense += 1;
-  }
-
-  return { attack, defense };
 }
 
 /**
@@ -87,7 +53,7 @@ export function CombatModal({
 
   // Determine if fighting enemies
   const isVsEnemy = opponents.length > 0 && 'attackBonus' in opponents[0];
-  const playerStats = calculateStats(player, isVsEnemy);
+  const playerStats = calculatePlayerStats(player, isVsEnemy);
 
   // Auto-select target if only one opponent
   const needsTargetSelection = opponents.filter(o => o.hp > 0).length > 1;
@@ -142,7 +108,7 @@ export function CombatModal({
             {opponents.map((opponent) => {
               const isPlayerOpponent = isPlayer(opponent);
               const opponentStats = isPlayerOpponent
-                ? calculateStats(opponent as Player, false)
+                ? calculatePlayerStats(opponent as Player, false)
                 : {
                     attack: (opponent as Enemy).attackBonus + 1,
                     defense: (opponent as Enemy).defenseBonus + 1,

@@ -427,44 +427,7 @@ export function normalizeInventory(
 
   return normalized;
 }
-
-/**
- * Add items to first available inventory slots
- * @param currentInventory - Current inventory state
- * @param items - Items to add
- * @param playerClass - Player's class (determines max slots)
- * @returns Object with updated inventory, items that fit, and overflow items
- */
-export function addItemsToInventory(
-  currentInventory: (Item | null)[] | undefined | null,
-  items: Item[],
-  playerClass: Player['class']
-): {
-  inventory: (Item | null)[];
-  added: Item[];
-  overflow: Item[];
-} {
-  const inventory = normalizeInventory(currentInventory, playerClass);
-  const added: Item[] = [];
-  const overflow: Item[] = [];
-
-  for (const item of items) {
-    // Find first null/empty slot
-    const emptyIndex = inventory.findIndex(slot => slot === null);
-    if (emptyIndex !== -1) {
-      inventory[emptyIndex] = item;
-      added.push(item);
-    } else {
-      // All slots full - item overflows
-      overflow.push(item);
-    }
-  }
-
-  return { inventory, added, overflow };
-}
 ```
-
-**Note:** I've also extracted the `addItemToInventory` logic (lines 128-148 in GameScreen) into `addItemsToInventory` for additional consolidation.
 
 ---
 
@@ -474,7 +437,7 @@ export function addItemsToInventory(
 
 **Step 1:** Add import at top of file
 ```typescript
-import { normalizeInventory, addItemsToInventory } from '../utils/inventory';
+import { normalizeInventory } from '../utils/inventory';
 ```
 
 **Step 2:** Delete local `normalizeInventory()` function (lines 110-121)
@@ -483,24 +446,10 @@ import { normalizeInventory, addItemsToInventory } from '../utils/inventory';
 // const normalizeInventory = (inventory: ...) => { ... }
 ```
 
-**Step 3:** Delete local `addItemToInventory()` function (lines 128-148)
-```typescript
-// DELETE THIS FUNCTION:
-// const addItemToInventory = (items: Item[]): ... => { ... }
-```
-
-**Step 4:** Update all 8 call sites
+**Step 3:** Update all 8 call sites
 
 **Call sites to update:**
-1. Line 130 (in old addItemToInventory):
-```typescript
-// Change:
-const inventory = normalizeInventory(currentPlayer.inventory);
-// To:
-const inventory = normalizeInventory(currentPlayer.inventory, currentPlayer.class);
-```
-
-2. Line 256 (handleEquipItem):
+1. Line 256 (handleEquipItem):
 ```typescript
 // Change:
 [`players/${playerId}/inventory`]: normalizeInventory(inventory),
@@ -508,7 +457,7 @@ const inventory = normalizeInventory(currentPlayer.inventory, currentPlayer.clas
 [`players/${playerId}/inventory`]: normalizeInventory(inventory, currentPlayer.class),
 ```
 
-3. Line 298 (handleUnequipItem):
+2. Line 298 (handleUnequipItem):
 ```typescript
 // Change:
 [`players/${playerId}/inventory`]: normalizeInventory(inventory),
@@ -516,7 +465,7 @@ const inventory = normalizeInventory(currentPlayer.inventory, currentPlayer.clas
 [`players/${playerId}/inventory`]: normalizeInventory(inventory, currentPlayer.class),
 ```
 
-4. Line 550 (handleInventoryUpdate):
+3. Line 550 (handleInventoryUpdate):
 ```typescript
 // Change:
 const normalizedInventory = normalizeInventory(inventory);
@@ -524,7 +473,7 @@ const normalizedInventory = normalizeInventory(inventory);
 const normalizedInventory = normalizeInventory(inventory, currentPlayer.class);
 ```
 
-5. Line 571 (handleInventoryDiscard):
+4. Line 571 (handleInventoryDiscard):
 ```typescript
 // Change:
 [`players/${playerId}/inventory`]: normalizeInventory(itemsToKeep),
@@ -532,7 +481,7 @@ const normalizedInventory = normalizeInventory(inventory, currentPlayer.class);
 [`players/${playerId}/inventory`]: normalizeInventory(itemsToKeep, currentPlayer.class),
 ```
 
-6. Line 618 (handleUseTrap):
+5. Line 618 (handleUseTrap):
 ```typescript
 // Change:
 const inventory = normalizeInventory(currentPlayer.inventory);
@@ -540,7 +489,7 @@ const inventory = normalizeInventory(currentPlayer.inventory);
 const inventory = normalizeInventory(currentPlayer.inventory, currentPlayer.class);
 ```
 
-7. Line 631 (handleUseTrap):
+6. Line 631 (handleUseTrap):
 ```typescript
 // Change:
 [`players/${playerId}/inventory`]: normalizeInventory(inventory),
@@ -548,30 +497,12 @@ const inventory = normalizeInventory(currentPlayer.inventory, currentPlayer.clas
 [`players/${playerId}/inventory`]: normalizeInventory(inventory, currentPlayer.class),
 ```
 
-8. Line 935 (renderInventory):
+7. Line 935 (renderInventory):
 ```typescript
 // Change:
 const inventory = normalizeInventory(currentPlayer.inventory);
 // To:
 const inventory = normalizeInventory(currentPlayer.inventory, currentPlayer.class);
-```
-
-**Step 5:** Replace `addItemToInventory()` calls (lines 532, 699)
-
-Line 532:
-```typescript
-// Change:
-const result = addItemToInventory(pendingItems);
-// To:
-const result = addItemsToInventory(currentPlayer.inventory, pendingItems, currentPlayer.class);
-```
-
-Line 699:
-```typescript
-// Change:
-const result = addItemToInventory(loot);
-// To:
-const result = addItemsToInventory(currentPlayer.inventory, loot, currentPlayer.class);
 ```
 
 ---
@@ -640,7 +571,7 @@ This will involve:
 - `src/utils/shuffle.ts`
 - `src/utils/inventory.ts`
 
-### Files to Modify (4)
+### Files to Modify (5)
 - `src/screens/GameScreen.tsx` (major changes)
 - `src/state/gameSlice.ts` (remove duplicates, add import)
 - `src/components/game/CombatModal.tsx` (remove duplicate, add import)

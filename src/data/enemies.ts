@@ -5,6 +5,7 @@
  */
 
 import type { Enemy } from '../types';
+import { shuffleDeck } from '../utils/shuffle';
 
 /**
  * Creates a new enemy instance with a unique ID
@@ -143,20 +144,6 @@ export function buildEnemyDeck(tier: 1 | 2 | 3): Enemy[] {
   // Create instances and shuffle
   const deck = enemyFactories.map(factory => factory());
   return shuffleDeck(deck);
-}
-
-/**
- * Shuffle an array using Fisher-Yates algorithm
- * @param deck - Array to shuffle
- * @returns Shuffled array
- */
-function shuffleDeck<T>(deck: T[]): T[] {
-  const shuffled = [...deck];
-  for (let i = shuffled.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-  }
-  return shuffled;
 }
 
 /**
