@@ -44,7 +44,6 @@ interface GameScreenProps {
 export function GameScreen({ gameState, playerId }: GameScreenProps) {
   // State for UI interactions
   const [selectedItem, setSelectedItem] = useState<Item | null>(null);
-  const [showLogs, setShowLogs] = useState(false);
   const [activeTab, setActiveTab] = useState<'logs' | 'chat'>('logs');
 
   // State for modals
@@ -244,6 +243,15 @@ export function GameScreen({ gameState, playerId }: GameScreenProps) {
 
   return (
     <div className="screen game-screen">
+      {/* Left panel - Logs and Chat */}
+      <div className="game-left-panel">
+        <GameLog
+          logs={gameState.logs}
+          activeTab={activeTab}
+          onTabChange={setActiveTab}
+        />
+      </div>
+
       {/* Game board */}
       <div className="game-board-section">
         <Board
@@ -253,8 +261,33 @@ export function GameScreen({ gameState, playerId }: GameScreenProps) {
         />
       </div>
 
-      {/* Side panel */}
-      <div className="game-side-panel">
+      {/* Center Actions - Below board */}
+      <div className={`game-center-actions ${!isMyTurn ? 'disabled' : ''}`}>
+        {!isMyTurn ? (
+          <div className="turn-info-horizontal">
+            <p>🕐 {safeTurnPlayer.nickname}'s Turn</p>
+          </div>
+        ) : (
+          <ActionButtons
+            isMyTurn={isMyTurn}
+            currentPlayer={currentPlayer}
+            turnPlayerNickname={safeTurnPlayer.nickname}
+            playersOnSameTile={playerUtils.getPlayersOnSameTile()}
+            unconsciousPlayersOnTile={playerUtils.getUnconsciousPlayersOnSameTile()}
+            isSanctuary={playerUtils.getCurrentTile()?.type === 'sanctuary'}
+            hasAmbush={turnActions.hasAmbush()}
+            onMove={turnActions.handleMove}
+            onSleep={turnActions.handleSleep}
+            onShowDuelModal={() => setShowDuelModal(true)}
+            onLootPlayer={turnActions.handleLootPlayer}
+            onPlaceAmbush={turnActions.handlePlaceAmbush}
+            onEndTurn={turnActions.handleEndTurn}
+          />
+        )}
+      </div>
+
+      {/* Right panel - Stats and Inventory */}
+      <div className="game-right-panel">
         {/* Player info and stats */}
         <div className="player-info-section">
           <h2>{currentPlayer.nickname}</h2>
@@ -281,37 +314,6 @@ export function GameScreen({ gameState, playerId }: GameScreenProps) {
           onItemClick={setSelectedItem}
           onUseTrap={inventoryManagement.handleUseTrap}
         />
-
-        {/* Turn actions */}
-        <ActionButtons
-          isMyTurn={isMyTurn}
-          currentPlayer={currentPlayer}
-          turnPlayerNickname={safeTurnPlayer.nickname}
-          playersOnSameTile={playerUtils.getPlayersOnSameTile()}
-          unconsciousPlayersOnTile={playerUtils.getUnconsciousPlayersOnSameTile()}
-          isSanctuary={playerUtils.getCurrentTile()?.type === 'sanctuary'}
-          hasAmbush={turnActions.hasAmbush()}
-          onMove={turnActions.handleMove}
-          onSleep={turnActions.handleSleep}
-          onShowDuelModal={() => setShowDuelModal(true)}
-          onLootPlayer={turnActions.handleLootPlayer}
-          onPlaceAmbush={turnActions.handlePlaceAmbush}
-          onEndTurn={turnActions.handleEndTurn}
-        />
-      </div>
-
-      {/* Logs panel */}
-      <div className="game-logs-panel">
-        <button className="logs-toggle" onClick={() => setShowLogs(!showLogs)}>
-          {showLogs ? 'Hide Logs' : 'Show Logs'}
-        </button>
-        {showLogs && (
-          <GameLog
-            logs={gameState.logs}
-            activeTab={activeTab}
-            onTabChange={setActiveTab}
-          />
-        )}
       </div>
 
       {/* Item detail modal */}

@@ -78,10 +78,33 @@ h1, h2, h3, h4 {
   margin-bottom: var(--spacing-md);
 }
 
-h1 { font-size: 2.5rem; }
-h2 { font-size: 2rem; }
-h3 { font-size: 1.5rem; }
-h4 { font-size: 1.2rem; }
+h1 { font-size: clamp(1.5rem, 2.5vw, 2.5rem); }
+h2 { font-size: clamp(1.2rem, 1.5vw, 2rem); }
+h3 { font-size: clamp(1rem, 1.2vw, 1.5rem); }
+h4 { font-size: clamp(0.9rem, 1vw, 1.2rem); }
+
+.game-screen h2 {
+  font-size: clamp(1rem, 1.2vw, 1.5rem);
+  margin-bottom: clamp(6px, 0.8vh, 10px);
+}
+
+.game-screen h3 {
+  font-size: clamp(0.9rem, 1.1vw, 1.3rem);
+  margin-bottom: clamp(6px, 0.8vh, 10px);
+}
+
+.game-screen h4 {
+  font-size: clamp(0.8rem, 1vw, 1.2rem);
+  margin-bottom: clamp(4px, 0.6vh, 8px);
+}
+
+.game-stats-panel h2 {
+  margin-bottom: clamp(4px, 0.6vh, 8px);
+}
+
+.game-stats-panel h3 {
+  margin-bottom: clamp(4px, 0.6vh, 8px);
+}
 
 /* ============================================================================
    SCREEN LAYOUT
@@ -96,6 +119,19 @@ h4 { font-size: 1.2rem; }
   justify-content: center;
 }
 
+.screen.game-screen {
+  padding: 2vh 2vw;
+  width: 100vw;
+  height: 100vh;
+  min-height: 100vh;
+  max-height: 100vh;
+  overflow: hidden;
+  box-sizing: border-box;
+  position: fixed;
+  top: 0;
+  left: 0;
+}
+
 .loading-screen {
   font-size: 1.5rem;
   color: var(--color-text-secondary);
@@ -105,17 +141,28 @@ h4 { font-size: 1.2rem; }
    BUTTONS
    ============================================================================ */
 .btn {
-  padding: var(--spacing-md) var(--spacing-lg);
-  font-size: 1rem;
+  padding: var(--spacing-sm) var(--spacing-md);
+  font-size: clamp(0.7rem, 0.8vw, 1rem);
   font-weight: bold;
   border: 2px solid;
   border-radius: var(--radius-md);
   cursor: pointer;
   transition: all 0.3s ease;
   text-transform: uppercase;
-  letter-spacing: 1px;
+  letter-spacing: 0.5px;
   font-family: inherit;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
+}
+
+.game-screen .btn {
+  padding: clamp(6px, 0.8vh, 12px) clamp(6px, 0.6vw, 12px);
+  font-size: clamp(0.7rem, 0.85vw, 1rem);
+  letter-spacing: 0.3px;
+}
+
+.game-actions-panel .btn {
+  padding: clamp(5px, 0.7vh, 10px) clamp(5px, 0.5vw, 10px);
+  font-size: clamp(0.65rem, 0.8vw, 0.95rem);
 }
 
 .btn-primary {
@@ -472,34 +519,188 @@ h4 { font-size: 1.2rem; }
    ============================================================================ */
 .game-screen {
   display: grid;
-  grid-template-columns: 1fr 350px;
-  grid-template-rows: 1fr auto;
-  gap: var(--spacing-lg);
-  padding: var(--spacing-lg);
-  max-width: 1600px;
-  margin: 0 auto;
-  align-items: start;
+  grid-template-columns: 22fr 56fr 22fr;
+  grid-template-rows: minmax(0, 1fr) auto;
+  gap: 1vw;
+  width: 100%;
+  height: 100%;
+  max-height: 100%;
+  margin: 0;
+  align-items: stretch;
+  overflow: hidden;
+  box-sizing: border-box;
 }
 
-.game-board-section {
+/* LEFT PANEL - Logs and Chat */
+.game-left-panel {
   grid-column: 1;
   grid-row: 1 / 3;
-}
-
-.game-side-panel {
-  grid-column: 2;
-  grid-row: 1;
   background: var(--color-stone-dark);
   border: 2px solid var(--color-stone-light);
   border-radius: var(--radius-lg);
-  padding: var(--spacing-lg);
-  max-height: 90vh;
+  padding: 1.5vh 1vw;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+}
+
+/* BOARD SECTION */
+.game-board-section {
+  grid-column: 2;
+  grid-row: 1;
+  height: 100%;
+  width: 100%;
+  min-height: 0;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  position: relative;
+}
+
+/* CENTER ACTION BUTTONS - Below board */
+.game-center-actions {
+  grid-column: 2;
+  grid-row: 2;
+  background: var(--color-stone-dark);
+  border: 2px solid var(--color-stone-light);
+  border-radius: var(--radius-lg);
+  padding: 1vh 1.5vw;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 1vw;
+  overflow-x: auto;
+  overflow-y: hidden;
+  flex-shrink: 0;
+  max-height: 12vh;
+  min-height: fit-content;
+}
+
+.game-center-actions.disabled {
+  opacity: 0.7;
+  background: var(--color-stone);
+  border-color: var(--color-stone-lighter);
+  pointer-events: none;
+}
+
+/* Horizontal turn info */
+.turn-info-horizontal {
+  background: var(--color-stone);
+  border: 2px solid var(--color-stone-light);
+  border-radius: var(--radius-md);
+  padding: clamp(8px, 1vh, 14px) clamp(12px, 1.5vw, 24px);
+  text-align: center;
+  font-size: clamp(0.8rem, 0.95vw, 1.1rem);
+  font-weight: bold;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.turn-info-horizontal p {
+  margin: 0;
+  color: var(--color-text-secondary);
+}
+
+/* Horizontal action buttons layout */
+.game-center-actions .action-buttons {
+  display: flex;
+  align-items: center;
+  gap: clamp(8px, 1vw, 16px);
+  width: 100%;
+  flex-wrap: nowrap;
+}
+
+.game-center-actions .action-buttons h3 {
+  margin: 0;
+  padding-right: clamp(8px, 1vw, 16px);
+  border-right: 2px solid var(--color-stone-light);
+  font-size: clamp(0.9rem, 1.1vw, 1.3rem);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.game-center-actions .actions-grid {
+  display: flex;
+  gap: clamp(6px, 0.8vw, 12px);
+  flex-wrap: wrap;
+  flex: 1;
+  align-items: center;
+}
+
+.game-center-actions .end-turn-section {
+  margin: 0;
+  padding-left: clamp(8px, 1vw, 16px);
+  border-left: 2px solid var(--color-stone-light);
+  flex-shrink: 0;
+}
+
+.game-center-actions .btn {
+  padding: clamp(6px, 0.8vh, 12px) clamp(8px, 1vw, 16px);
+  font-size: clamp(0.7rem, 0.85vw, 1rem);
+  white-space: nowrap;
+  flex-shrink: 1;
+  min-width: fit-content;
+}
+
+.game-center-actions .unconscious-wake {
+  text-align: center;
+  padding: clamp(10px, 1.2vh, 16px) clamp(12px, 1.5vw, 24px);
+  background: rgba(139, 0, 0, 0.2);
+  border: 2px solid var(--color-blood);
+  border-radius: var(--radius-md);
+  width: 100%;
+}
+
+.game-center-actions .unconscious-wake h3 {
+  margin-bottom: clamp(4px, 0.6vh, 8px);
+  color: var(--color-text-primary);
+  border: none;
+  padding: 0;
+}
+
+.game-center-actions .unconscious-wake p {
+  margin: 0;
+  color: var(--color-text-secondary);
+}
+
+/* RIGHT PANEL - Stats and Inventory (Full Height) */
+.game-right-panel {
+  grid-column: 3;
+  grid-row: 1 / 3;
+  background: var(--color-stone-dark);
+  border: 2px solid var(--color-stone-light);
+  border-radius: var(--radius-lg);
+  padding: 1.5vh 1vw;
   overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: clamp(8px, 1vh, 16px);
+  box-sizing: border-box;
+  height: 100%;
+  min-height: 0;
+}
+
+/* Deprecated - Old action panel styling (no longer used) */
+.game-stats-panel {
+  display: contents;
+}
+
+.game-actions-panel {
+  display: none;
+}
+
+/* DEPRECATED - keeping for backwards compatibility but not used in new layout */
+.game-side-panel {
+  display: none;
 }
 
 .game-logs-panel {
-  grid-column: 2;
-  grid-row: 2;
+  display: none;
 }
 
 /* ============================================================================
@@ -509,15 +710,29 @@ h4 { font-size: 1.2rem; }
   background: var(--color-stone);
   border: 3px solid var(--color-gold);
   border-radius: var(--radius-lg);
-  padding: var(--spacing-lg);
+  padding: clamp(4px, 0.6vh, 10px) clamp(4px, 0.6vw, 10px);
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.7);
+  width: 100%;
+  height: 100%;
+  max-width: 100%;
+  max-height: 100%;
+  display: grid;
+  grid-template-rows: repeat(8, minmax(0, 1fr));
+  gap: clamp(2px, 0.3vh, 6px);
+  box-sizing: border-box;
+  overflow: hidden;
+  contain: layout size;
 }
 
 .board-row {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  gap: var(--spacing-sm);
-  margin-bottom: var(--spacing-sm);
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: clamp(2px, 0.3vw, 6px);
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  min-width: 0;
+  contain: layout size;
 }
 
 .board-row:last-child {
@@ -529,13 +744,21 @@ h4 { font-size: 1.2rem; }
   background: var(--color-stone-light);
   border: 2px solid var(--color-stone-lighter);
   border-radius: var(--radius-md);
-  padding: var(--spacing-sm);
+  padding: clamp(2px, 0.3vw, 6px);
   display: flex;
   flex-direction: column;
   justify-content: space-between;
   position: relative;
   cursor: pointer;
   transition: transform 0.2s ease;
+  min-height: 0;
+  min-width: 0;
+  width: 100%;
+  height: 100%;
+  max-height: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
 }
 
 .tile:hover {
@@ -547,12 +770,12 @@ h4 { font-size: 1.2rem; }
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  font-size: 0.7rem;
+  font-size: clamp(0.5rem, 0.7vw, 0.9rem);
 }
 
 .tile-number {
   background: rgba(0, 0, 0, 0.5);
-  padding: 2px 6px;
+  padding: clamp(1px, 0.1vh, 3px) clamp(3px, 0.3vw, 6px);
   border-radius: var(--radius-sm);
   font-weight: bold;
 }
@@ -560,7 +783,7 @@ h4 { font-size: 1.2rem; }
 .tile-label {
   text-align: center;
   font-weight: bold;
-  font-size: 0.65rem;
+  font-size: clamp(0.45rem, 0.65vw, 0.85rem);
 }
 
 /* Tile type colors */
@@ -574,17 +797,18 @@ h4 { font-size: 1.2rem; }
 .tile-tokens {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--spacing-xs);
+  gap: clamp(2px, 0.3vw, 6px);
   justify-content: center;
   align-items: center;
-  min-height: 30px;
+  flex: 1;
+  min-height: 0;
 }
 
 .trap-indicator {
   position: absolute;
-  top: 4px;
-  right: 4px;
-  font-size: 1.2rem;
+  top: clamp(2px, 0.2vw, 4px);
+  right: clamp(2px, 0.2vw, 4px);
+  font-size: clamp(0.9rem, 1.2vw, 1.6rem);
   animation: trap-pulse 2s infinite;
   filter: drop-shadow(0 0 4px rgba(255, 0, 0, 0.8));
   z-index: 10;
@@ -611,8 +835,8 @@ h4 { font-size: 1.2rem; }
    PLAYER TOKENS
    ============================================================================ */
 .player-token {
-  width: 32px;
-  height: 32px;
+  width: clamp(24px, 2.5vw, 45px);
+  height: clamp(24px, 2.5vw, 45px);
   border-radius: 50%;
   background: linear-gradient(135deg, var(--color-stone-light), var(--color-stone-lighter));
   border: 2px solid var(--color-text-primary);
@@ -620,7 +844,7 @@ h4 { font-size: 1.2rem; }
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  font-size: 0.7rem;
+  font-size: clamp(0.5rem, 0.7vw, 0.9rem);
   font-weight: bold;
   position: relative;
 }
@@ -637,20 +861,25 @@ h4 { font-size: 1.2rem; }
 }
 
 .token-initial {
-  font-size: 0.9rem;
+  font-size: clamp(0.6rem, 0.9vw, 1.1rem);
   color: var(--color-text-primary);
 }
 
 .token-hp {
   position: absolute;
-  bottom: -4px;
-  right: -4px;
+  bottom: clamp(-2px, -0.2vw, -4px);
+  right: clamp(-2px, -0.2vw, -4px);
   background: var(--color-blood);
   color: white;
-  font-size: 0.6rem;
-  padding: 1px 3px;
+  font-size: clamp(0.5rem, 0.6vw, 0.8rem);
+  padding: clamp(1px, 0.1vh, 2px) clamp(2px, 0.2vw, 4px);
   border-radius: 50%;
   border: 1px solid white;
+  min-width: clamp(14px, 1.2vw, 20px);
+  min-height: clamp(14px, 1.2vw, 20px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 @keyframes pulse {
@@ -665,27 +894,27 @@ h4 { font-size: 1.2rem; }
   background: var(--color-stone);
   border: 2px solid var(--color-stone-lighter);
   border-radius: var(--radius-md);
-  padding: var(--spacing-md);
-  min-width: 150px;
+  padding: clamp(6px, 0.8vh, 12px) clamp(6px, 0.6vw, 12px);
+  min-width: 0;
   cursor: pointer;
   transition: transform 0.2s ease;
 }
 
 .card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.5);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.5);
 }
 
 .card-back {
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 100px;
+  min-height: clamp(50px, 6vh, 80px);
   background: var(--color-stone-dark);
 }
 
 .card-back-design {
-  font-size: 3rem;
+  font-size: clamp(1.5rem, 2.5vw, 3.5rem);
 }
 
 .card-treasure.tier-1 { border-color: var(--color-bronze); }
@@ -702,94 +931,94 @@ h4 { font-size: 1.2rem; }
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: var(--spacing-sm);
-  padding-bottom: var(--spacing-sm);
+  margin-bottom: clamp(4px, 0.5vh, 8px);
+  padding-bottom: clamp(4px, 0.5vh, 8px);
   border-bottom: 1px solid var(--color-stone-lighter);
 }
 
 .card-name {
   font-weight: bold;
   color: var(--color-gold);
-  font-size: 0.95rem;
+  font-size: clamp(0.75rem, 0.9vw, 1.1rem);
 }
 
 .card-tier {
-  font-size: 0.8rem;
+  font-size: clamp(0.65rem, 0.75vw, 0.9rem);
   background: var(--color-stone-dark);
-  padding: 2px 6px;
+  padding: clamp(2px, 0.2vh, 4px) clamp(4px, 0.3vw, 6px);
   border-radius: var(--radius-sm);
 }
 
 .card-body {
-  font-size: 0.85rem;
+  font-size: clamp(0.7rem, 0.8vw, 0.95rem);
 }
 
 .card-category {
   color: var(--color-text-secondary);
-  font-size: 0.75rem;
+  font-size: clamp(0.65rem, 0.75vw, 0.85rem);
   text-transform: uppercase;
-  margin-bottom: var(--spacing-xs);
+  margin-bottom: clamp(4px, 0.5vh, 8px);
 }
 
 .card-stats {
   display: flex;
-  gap: var(--spacing-sm);
-  margin-bottom: var(--spacing-sm);
+  gap: clamp(4px, 0.4vw, 8px);
+  margin-bottom: clamp(4px, 0.5vh, 8px);
   flex-wrap: wrap;
 }
 
 .card-stats > span {
   background: rgba(0, 0, 0, 0.3);
-  padding: var(--spacing-xs) var(--spacing-sm);
+  padding: clamp(3px, 0.4vh, 6px) clamp(4px, 0.4vw, 8px);
   border-radius: var(--radius-sm);
-  font-size: 0.8rem;
+  font-size: clamp(0.65rem, 0.75vw, 0.9rem);
 }
 
 .card-description, .card-special {
   color: var(--color-text-secondary);
-  font-size: 0.8rem;
-  line-height: 1.4;
+  font-size: clamp(0.65rem, 0.75vw, 0.9rem);
+  line-height: 1.3;
 }
 
 /* ============================================================================
    EQUIPMENT & INVENTORY
    ============================================================================ */
 .equipment-section, .inventory-section {
-  margin-bottom: var(--spacing-lg);
+  flex-shrink: 0;
 }
 
 .equipment-slots {
   display: grid;
-  gap: var(--spacing-sm);
+  gap: clamp(4px, 0.5vh, 10px);
 }
 
 .equipment-slot {
   background: var(--color-stone);
   border: 2px solid var(--color-stone-light);
   border-radius: var(--radius-md);
-  padding: var(--spacing-sm);
+  padding: clamp(6px, 0.8vh, 12px) clamp(6px, 0.6vw, 12px);
 }
 
 .equipment-slot label {
   display: block;
-  font-size: 0.8rem;
+  font-size: clamp(0.7rem, 0.85vw, 1rem);
   color: var(--color-gold);
-  margin-bottom: var(--spacing-xs);
+  margin-bottom: clamp(4px, 0.5vh, 8px);
   text-transform: uppercase;
 }
 
 .inventory-slots {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: var(--spacing-sm);
+  gap: clamp(4px, 0.5vh, 10px);
 }
 
 .inventory-slot {
   background: var(--color-stone);
   border: 2px dashed var(--color-stone-light);
   border-radius: var(--radius-md);
-  padding: var(--spacing-sm);
-  min-height: 80px;
+  padding: clamp(6px, 0.8vh, 12px) clamp(6px, 0.6vw, 12px);
+  min-height: clamp(60px, 8vh, 100px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -804,13 +1033,13 @@ h4 { font-size: 1.2rem; }
 }
 
 .use-item-btn {
-  margin-top: var(--spacing-xs);
-  padding: 4px 8px;
+  margin-top: clamp(4px, 0.5vh, 8px);
+  padding: clamp(4px, 0.5vh, 8px) clamp(6px, 0.6vw, 10px);
   background: var(--color-rust);
   color: var(--color-text-primary);
   border: 1px solid var(--color-bronze);
   border-radius: var(--radius-sm);
-  font-size: 0.75rem;
+  font-size: clamp(0.65rem, 0.75vw, 0.9rem);
   cursor: pointer;
   transition: all 0.2s;
   font-family: inherit;
@@ -829,8 +1058,21 @@ h4 { font-size: 1.2rem; }
 
 .empty-slot {
   color: var(--color-text-muted);
-  font-size: 0.8rem;
+  font-size: clamp(0.6rem, 0.7vw, 0.8rem);
   font-style: italic;
+}
+
+.player-info-section {
+  flex-shrink: 0;
+}
+
+.game-right-panel .player-info-section {
+  flex-shrink: 0;
+}
+
+.game-right-panel .equipment-section,
+.game-right-panel .inventory-section {
+  flex-shrink: 0;
 }
 
 /* ============================================================================
@@ -839,14 +1081,13 @@ h4 { font-size: 1.2rem; }
 .player-stats {
   background: var(--color-stone);
   border-radius: var(--radius-md);
-  padding: var(--spacing-md);
-  margin-bottom: var(--spacing-lg);
+  padding: clamp(8px, 1vh, 16px) clamp(8px, 0.8vw, 16px);
 }
 
 .stat {
   display: flex;
   justify-content: space-between;
-  padding: var(--spacing-xs) 0;
+  padding: clamp(4px, 0.6vh, 10px) 0;
   border-bottom: 1px solid var(--color-stone-light);
 }
 
@@ -856,50 +1097,68 @@ h4 { font-size: 1.2rem; }
 
 .stat-label {
   color: var(--color-text-secondary);
-  font-size: 0.9rem;
+  font-size: clamp(0.75rem, 0.9vw, 1.1rem);
 }
 
 .stat-value {
   color: var(--color-gold);
   font-weight: bold;
+  font-size: clamp(0.75rem, 0.9vw, 1.1rem);
 }
 
+/* Default action buttons (vertical layout - fallback) */
 .action-buttons {
-  margin-bottom: var(--spacing-lg);
+  flex-shrink: 0;
+}
+
+.action-buttons h3 {
+  margin-bottom: clamp(6px, 0.8vh, 10px);
+  text-align: center;
 }
 
 .actions-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: var(--spacing-sm);
-  margin-bottom: var(--spacing-md);
+  gap: clamp(4px, 0.5vw, 8px);
+  margin-bottom: 0;
+}
+
+.end-turn-section {
+  margin-top: clamp(6px, 0.8vh, 12px);
 }
 
 .turn-info {
   background: var(--color-stone);
   border: 2px solid var(--color-stone-light);
   border-radius: var(--radius-md);
-  padding: var(--spacing-lg);
+  padding: clamp(12px, 1.5vh, 20px) clamp(12px, 1vw, 20px);
   text-align: center;
+  font-size: clamp(0.85rem, 1vw, 1.2rem);
+}
+
+.game-actions-panel .turn-info {
+  padding: clamp(10px, 1.2vh, 16px) clamp(10px, 0.8vw, 16px);
+  font-size: clamp(0.8rem, 0.95vw, 1.1rem);
+}
+
+.game-actions-panel .turn-info p {
+  margin: 0;
 }
 
 /* ============================================================================
    LOGS
    ============================================================================ */
-.logs-toggle {
-  width: 100%;
-  background: var(--color-stone);
-  border: 2px solid var(--color-gold);
-  border-radius: var(--radius-md);
-  padding: var(--spacing-md);
-  color: var(--color-text-primary);
-  font-weight: bold;
-  cursor: pointer;
-  transition: background 0.3s ease;
-}
-
-.logs-toggle:hover {
-  background: var(--color-stone-light);
+.game-left-panel .logs-section {
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  margin-top: 0;
+  overflow: hidden;
+  height: 100%;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 .logs-section {
@@ -908,48 +1167,55 @@ h4 { font-size: 1.2rem; }
   border-radius: var(--radius-md);
   margin-top: var(--spacing-sm);
   overflow: hidden;
+  max-height: 25vh;
+  display: flex;
+  flex-direction: column;
 }
 
 .logs-header {
   display: flex;
   border-bottom: 2px solid var(--color-stone-light);
+  flex-shrink: 0;
 }
 
 .logs-header button {
   flex: 1;
   background: var(--color-stone);
   border: none;
-  padding: var(--spacing-md);
+  padding: clamp(8px, 1vh, 14px) var(--spacing-sm);
   color: var(--color-text-secondary);
   cursor: pointer;
   transition: background 0.3s ease;
+  font-size: clamp(0.75rem, 0.9vw, 1.1rem);
+  font-weight: bold;
 }
 
 .logs-header button.active {
-  background: var(--color-stone-dark);
+  background: transparent;
   color: var(--color-gold);
-  border-bottom: 2px solid var(--color-gold);
+  border-bottom: 3px solid var(--color-gold);
 }
 
 .logs-content {
-  max-height: 300px;
   overflow-y: auto;
-  padding: var(--spacing-md);
+  padding: clamp(8px, 1vh, 16px) clamp(8px, 0.8vw, 16px);
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
 .event-logs {
   display: flex;
   flex-direction: column;
-  gap: var(--spacing-xs);
+  gap: clamp(6px, 0.8vh, 12px);
 }
 
 .log-entry {
-  padding: var(--spacing-sm);
+  padding: clamp(6px, 0.8vh, 12px) clamp(6px, 0.6vw, 12px);
   background: rgba(0, 0, 0, 0.2);
   border-radius: var(--radius-sm);
-  font-size: 0.85rem;
+  font-size: clamp(0.7rem, 0.85vw, 1rem);
   display: flex;
-  gap: var(--spacing-sm);
+  gap: clamp(6px, 0.6vw, 10px);
 }
 
 .log-entry.important {
@@ -959,12 +1225,13 @@ h4 { font-size: 1.2rem; }
 
 .log-time {
   color: var(--color-text-muted);
-  font-size: 0.75rem;
+  font-size: clamp(0.65rem, 0.75vw, 0.9rem);
   white-space: nowrap;
 }
 
 .log-message {
   color: var(--color-text-primary);
+  line-height: 1.4;
 }
 
 .log-combat {
@@ -973,6 +1240,31 @@ h4 { font-size: 1.2rem; }
 
 .log-system {
   border-left: 3px solid var(--color-gold);
+}
+
+/* Deprecated logs toggle - no longer used */
+.logs-toggle {
+  display: none;
+}
+
+/* Chat placeholder */
+.chat-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  min-height: 0;
+  color: var(--color-text-secondary);
+  font-style: italic;
+  font-size: clamp(0.8rem, 0.95vw, 1.1rem);
+}
+
+.chat-placeholder p {
+  margin: 0;
+}
+
+.logs-content .chat-placeholder {
+  height: 100%;
 }
 
 /* ============================================================================
