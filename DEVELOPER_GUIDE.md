@@ -12,6 +12,7 @@
 9. [Component Reference](#component-reference)
 10. [Data Structures](#data-structures)
 11. [How to Extend the Game](#how-to-extend-the-game)
+    - [Managing Cards for Testing (Card Manager)](#managing-cards-for-testing-card-manager)
 12. [Firebase Database Structure](#firebase-database-structure)
 13. [Key Design Decisions](#key-design-decisions)
 14. [Troubleshooting](#troubleshooting)
@@ -176,7 +177,9 @@ king-of-the-mountain/
 │   │
 │   ├── data/                  # Easily editable game data
 │   │   ├── BoardLayout.ts     # Board configuration & generation
-│   │   ├── cards.ts           # Treasure & Luck Cards
+│   │   ├── cards.ts           # Treasure & Luck Cards (uses cardManager)
+│   │   ├── cardManager.ts     # Deck configuration for testing ✨ NEW!
+│   │   ├── Card_Status.md     # Card testing documentation ✨ NEW!
 │   │   ├── classes.ts         # Player classes
 │   │   └── enemies.ts         # Enemy cards
 │   │
@@ -1785,6 +1788,157 @@ See `src/types/index.ts` for complete type definitions:
    }
    ```
 
+### Managing Cards for Testing (Card Manager)
+
+The Card Manager system (`src/data/cardManager.ts`) lets you control which cards appear in the game without editing code. This is essential for playtesting specific cards and combinations.
+
+#### Quick Start
+
+1. **Open** `src/data/cardManager.ts`
+2. **Edit** the `deckConfig` object to customize your deck
+3. **Reload** the dev server to apply changes
+
+#### Configuration Options
+
+Each card has three settings:
+
+```typescript
+Dagger: { enabled: true, quantity: 4, priority: false }
+```
+
+- **`enabled`**: `true` to include card, `false` to remove it
+- **`quantity`**: Number of copies in the deck
+- **`priority`**: `true` places card at top of deck (drawn first)
+
+#### Common Testing Scenarios
+
+**Disable a specific card:**
+```typescript
+// Completely remove Traps from the game
+Trap: { enabled: false, quantity: 0, priority: false }
+```
+
+**Test with more copies:**
+```typescript
+// Test with 10 Daggers instead of 4
+Dagger: { enabled: true, quantity: 10, priority: false }
+```
+
+**Force specific cards to top of deck:**
+```typescript
+// Guarantee these cards are drawn first
+Beer: { enabled: true, quantity: 2, priority: true }
+Trap: { enabled: true, quantity: 3, priority: true }
+// Priority cards are shuffled among themselves, then placed before regular cards
+```
+
+**Test only specific cards (disable all others):**
+```typescript
+treasures: {
+  // Enable only cards you want to test
+  Trap: { enabled: true, quantity: 5, priority: true },
+  Beer: { enabled: true, quantity: 5, priority: true },
+
+  // Disable all other cards
+  Dagger: { enabled: false, quantity: 0, priority: false },
+  WoodenShield: { enabled: false, quantity: 0, priority: false },
+  Robe: { enabled: false, quantity: 0, priority: false },
+  // ... etc
+}
+```
+
+**Test card interactions:**
+```typescript
+// Testing Trap immunity for Scout class
+luckCards: {
+  // Only enable movement cards to force trap encounters
+  Exhaustion: { enabled: true, quantity: 10, priority: true },
+  CaveIn: { enabled: true, quantity: 10, priority: true },
+  // Disable all other luck cards
+}
+
+treasures: {
+  // Ensure traps are available
+  Trap: { enabled: true, quantity: 10, priority: true },
+  // Disable other T1 cards
+}
+```
+
+#### How Priority Works
+
+Priority cards appear at the **top of the deck**:
+
+1. All priority cards are shuffled together
+2. All non-priority cards are shuffled together
+3. Priority cards are placed first, followed by regular cards
+4. This means priority cards will be drawn earliest, but their exact order is still random
+
+Example:
+```typescript
+// Tier 1 deck with priorities
+Trap: { enabled: true, quantity: 3, priority: true },    // Will be in first 5 cards
+Beer: { enabled: true, quantity: 2, priority: true },    // Will be in first 5 cards
+Dagger: { enabled: true, quantity: 10, priority: false }, // Will be in cards 6-15
+
+// Resulting deck order (example):
+// [Beer, Trap, Trap, Beer, Trap, Dagger, Dagger, Dagger, ...]
+//  ↑---- Priority cards ----↑  ↑------- Regular cards -------↑
+```
+
+#### Resetting Configuration
+
+**Reset to default (manual):**
+1. Open `cardManager.ts`
+2. Copy the `DEFAULT_DECK_CONFIG` object
+3. Paste it into `deckConfig`
+
+**Save current config as new default:**
+1. Open `cardManager.ts`
+2. Copy your current `deckConfig` object
+3. Paste it into `DEFAULT_DECK_CONFIG`
+
+#### Behind the Scenes
+
+When you start a game:
+1. `buildTreasureDeck()` and `buildLuckDeck()` in `cards.ts` read from `cardManager.ts`
+2. Only enabled cards are included
+3. Each card is created N times based on `quantity`
+4. Priority cards are separated and placed at deck top
+5. Decks are saved to Firebase and used for the entire game session
+
+**Important:** Changes only apply to NEW games. Existing games use the deck configuration from when they were created.
+
+#### Testing Workflow
+
+```bash
+# 1. Edit cardManager.ts
+# Example: Enable only Traps and Beer
+vim src/data/cardManager.ts
+
+# 2. Dev server auto-reloads
+# (if using npm run dev)
+
+# 3. Create a new game to test
+# Go to localhost:5173 and start a new lobby
+
+# 4. Draw cards and verify configuration
+# First few cards should be your priority cards
+
+# 5. Test card interactions
+# Document findings in src/data/Card_Status.md
+```
+
+#### Tips
+
+- Keep a backup of `DEFAULT_DECK_CONFIG` before extensive changes
+- Use priority for deterministic testing (no RNG waiting)
+- Set quantity to 1 for rare cards you want to test once
+- Document your test configurations in comments:
+  ```typescript
+  // Testing Trap mechanics - 2024-01-15
+  Trap: { enabled: true, quantity: 10, priority: true },
+  ```
+
 ### Adding New Enemy Types
 
 1. **Add to enemy array** in `src/data/enemies.ts`:
@@ -2021,6 +2175,35 @@ This would require adding Firebase Authentication, which is currently not implem
 2. Minimize state updates (batch updates when possible)
 3. Use React DevTools Profiler to identify slow components
 4. Consider memoizing expensive calculations with `useMemo`
+
+### Card Manager Not Working
+
+**Problem**: Changes to `cardManager.ts` don't appear in game
+
+**Solutions**:
+1. **Create a NEW game** - Card Manager only affects new lobbies, not existing ones
+2. Check for TypeScript errors in `cardManager.ts` (dev server console)
+3. Verify card names match exactly (case-sensitive):
+   - Use `Dagger` not `dagger`
+   - Use `LordsSword` not `Lord'sSword` in config keys
+4. Reload dev server if hot-reload didn't trigger
+5. Check browser console for warnings about missing factory functions
+
+**Problem**: Cards not appearing in expected order (priority not working)
+
+**Solutions**:
+1. Remember: Priority cards are **shuffled among themselves** first
+2. Priority cards go to top, but order within priority group is random
+3. To test a specific card first, set quantity: 1 with priority: true
+4. Check multiple games - RNG may vary results
+
+**Problem**: Deck is empty or missing cards
+
+**Solutions**:
+1. Ensure at least one card is enabled per tier you're testing
+2. Check `quantity` is > 0 for enabled cards
+3. Verify you're testing the right tier (T1, T2, T3, Luck)
+4. Check Firebase console - deck arrays should not be empty at game start
 
 ---
 

@@ -6,6 +6,13 @@
 
 import type { Item, LuckCard } from '../types';
 import { shuffleDeck } from '../utils/shuffle';
+import {
+  getTier1TreasureConfig,
+  getTier2TreasureConfig,
+  getTier3TreasureConfig,
+  getLuckCardConfig,
+  CARD_NAME_MAP,
+} from './cardManager';
 
 /**
  * Creates a unique item instance
@@ -336,30 +343,155 @@ export const LUCK_CARD_FACTORIES = [
 // ============================================================================
 
 /**
- * Build a shuffled treasure deck for a given tier
+ * Map card names to their factory functions for Tier 1
+ */
+const TIER_1_FACTORY_MAP: Record<string, () => Item> = {
+  'Dagger': () => createItem('Dagger', 'holdable', 1, '+1 Attack when equipped', { attackBonus: 1 }),
+  'Wooden Shield': () => createItem('Wooden Shield', 'holdable', 1, '+1 Defense when equipped', { defenseBonus: 1 }),
+  'Robe': () => createItem('Robe', 'wearable', 1, '+1 Defense when equipped', { defenseBonus: 1 }),
+  'Crude Axe': () => createItem('Crude Axe', 'holdable', 1, '+1 Attack when equipped', { attackBonus: 1 }),
+  'Lamp': () => createItem('Lamp', 'holdable', 1, 'If your turn would end on a tile with a player or enemy, you may step back 1 tile BEFORE resolving that tile', { special: 'step_back_before_resolve' }),
+  'Trap': () => createItem('Trap', 'small', 1, 'Place on your current tile; the next player who lands here skips their next turn (visible)', { special: 'trap', isConsumable: true }),
+  'Luck Charm': () => createItem('Luck Charm', 'small', 1, 'Cancel a Luck card you just drew or another player just revealed; play immediately as an interrupt; then return to bottom of T1', { special: 'luck_cancel', isConsumable: true }),
+  'Beer': () => createItem('Beer', 'small', 1, 'Heal 3 HP; -1 to your next movement roll', { special: 'heal_3_debuff_move', isConsumable: true }),
+  'Agility Draught': () => createItem('Agility Draught', 'small', 1, '+1 to all your Defense rolls this turn', { special: 'temp_defense_1', isConsumable: true }),
+};
+
+/**
+ * Map card names to their factory functions for Tier 2
+ */
+const TIER_2_FACTORY_MAP: Record<string, () => Item> = {
+  'Heirloom Armor': () => createItem('Heirloom Armor', 'wearable', 2, '+2 Defense when equipped', { defenseBonus: 2 }),
+  'Silver Shield': () => createItem('Silver Shield', 'holdable', 2, '+2 Defense when equipped', { defenseBonus: 2 }),
+  "Lord's Sword": () => createItem("Lord's Sword", 'holdable', 2, '+2 Attack when equipped', { attackBonus: 2 }),
+  'Boogey-Bane': () => createItem('Boogey-Bane', 'holdable', 2, '+2 Attack vs creatures only (not players)', { attackBonus: 2, special: 'creatures_only' }),
+  'Velvet Cloak': () => createItem('Velvet Cloak', 'wearable', 2, '+1 to movement roll', { movementBonus: 1 }),
+  'Rage Potion': () => createItem('Rage Potion', 'small', 2, '+1 to all your Attack rolls this turn', { special: 'temp_attack_1', isConsumable: true }),
+  'Fairy Dust': () => createItem('Fairy Dust', 'small', 2, 'Use before choosing Sleep; you become invisible to other players until your next turn starts or if any effect moves you; cannot be dueled while invisible', { special: 'invisibility', isConsumable: true }),
+  'Smoke Bomb': () => createItem('Smoke Bomb', 'small', 2, 'When someone offers a duel to you, play to prevent any duels for the remainder of the current turn; return to bottom of T2', { special: 'prevent_duel', isConsumable: true }),
+};
+
+/**
+ * Map card names to their factory functions for Tier 3
+ */
+const TIER_3_FACTORY_MAP: Record<string, () => Item> = {
+  'Royal Aegis': () => createItem('Royal Aegis', 'wearable', 3, '+3 Defense, -1 to movement roll', { defenseBonus: 3, movementBonus: -1 }),
+  'Essence of the Mysterious Flower': () => createItem('Essence of the Mysterious Flower', 'small', 3, 'Fully heal to max HP', { special: 'full_heal', isConsumable: true }),
+  'Dragonfang Greatsword': () => createItem('Dragonfang Greatsword', 'holdable', 3, '+3 Attack when equipped', { attackBonus: 3 }),
+  'Blink Scroll': () => createItem('Blink Scroll', 'small', 3, 'Move yourself +2 or -2 tiles before resolving your tile; ignore pass-through effects; cannot move into or out of Sanctuary if a card/effect would force you', { special: 'blink', isConsumable: true }),
+  'Wardstone': () => createItem('Wardstone', 'small', 3, 'The next time you would lose HP, prevent 1 HP loss, then discard', { special: 'prevent_1_hp', isConsumable: true }),
+};
+
+/**
+ * Map luck card names to their factory functions
+ */
+const LUCK_FACTORY_MAP: Record<string, () => LuckCard> = {
+  'Exhaustion': () => createLuckCard('Exhaustion', 'Move 1 tile back', 'move_back', 1),
+  'Cave-in': () => createLuckCard('Cave-in', 'Move 3 tiles back', 'move_back', 3),
+  'Faint': () => createLuckCard('Faint', 'Skip your next turn', 'skip_turn'),
+  'Vital Energy': () => createLuckCard('Vital Energy', 'Roll movement again immediately and move', 'roll_again'),
+  'Lost Treasure': () => createLuckCard('Lost Treasure', 'Skip next turn; draw 2 Tier 1 Treasures now', 'skip_draw_t1', 2),
+  'Jinn Thief': () => createLuckCard('Jinn Thief', 'Choose one of your items (equipped or in inventory) and return it to the bottom of the matching Treasure tier deck', 'steal_item', undefined, { requiresChoice: true }),
+  'Sprained Wrist': () => createLuckCard('Sprained Wrist', 'Lose 1 HP', 'lose_hp', 1),
+  'Covered Pit': () => createLuckCard('Covered Pit', 'Draw 1 Tier 1 Treasure now', 'draw_t1', 1),
+  'White-Bearded Spirit': () => createLuckCard('White-Bearded Spirit', 'Move 2 tiles forward', 'move_forward', 2),
+  'Mystic Wave': () => createLuckCard('Mystic Wave', 'Swap positions with the nearest player (tie breaks random; Sanctuary allowed because you affect yourself)', 'swap_position', undefined, { requiresChoice: true }),
+  'Nefarious Spirit': () => createLuckCard('Nefarious Spirit', 'If any player is within 6 tiles, move to that player and immediately start a duel (nearest; tie random)', 'forced_duel'),
+  'Ambush Opportunity': () => createLuckCard('Ambush Opportunity', 'Keep face down; starting next turn, place it on your current non-Sanctuary tile; the next time a player enters that tile during movement, you may immediately start a duel before the tile resolves; then discard', 'ambush', undefined, { canBeKept: true }),
+  'Instinct': () => createLuckCard('Instinct', 'Keep face down; once on your turn, move yourself +1 or -1 tile before or after your movement roll; single use', 'instinct', undefined, { canBeKept: true }),
+};
+
+/**
+ * Build a shuffled treasure deck for a given tier using cardManager configuration
  * @param tier - The treasure tier (1, 2, or 3)
- * @returns Shuffled array of Item objects
+ * @returns Shuffled array of Item objects with priority cards at top
  */
 export function buildTreasureDeck(tier: 1 | 2 | 3): Item[] {
-  let factories: (() => Item)[];
+  let config: Record<string, { enabled: boolean; quantity: number; priority: boolean }>;
+  let factoryMap: Record<string, () => Item>;
 
   if (tier === 1) {
-    factories = TIER_1_TREASURE_FACTORIES;
+    config = getTier1TreasureConfig();
+    factoryMap = TIER_1_FACTORY_MAP;
   } else if (tier === 2) {
-    factories = TIER_2_TREASURE_FACTORIES;
+    config = getTier2TreasureConfig();
+    factoryMap = TIER_2_FACTORY_MAP;
   } else {
-    factories = TIER_3_TREASURE_FACTORIES;
+    config = getTier3TreasureConfig();
+    factoryMap = TIER_3_FACTORY_MAP;
   }
 
-  const deck = factories.map(factory => factory());
-  return shuffleDeck(deck);
+  const priorityCards: Item[] = [];
+  const regularCards: Item[] = [];
+
+  // Build deck based on configuration
+  Object.entries(config).forEach(([cardKey, cardConfig]) => {
+    if (!cardConfig.enabled) return;
+
+    const cardName = CARD_NAME_MAP[cardKey as keyof typeof CARD_NAME_MAP];
+    const factory = factoryMap[cardName];
+
+    if (!factory) {
+      console.warn(`Factory not found for card: ${cardName}`);
+      return;
+    }
+
+    // Create the specified quantity of cards
+    for (let i = 0; i < cardConfig.quantity; i++) {
+      const card = factory();
+      if (cardConfig.priority) {
+        priorityCards.push(card);
+      } else {
+        regularCards.push(card);
+      }
+    }
+  });
+
+  // Shuffle each group separately
+  const shuffledPriority = shuffleDeck(priorityCards);
+  const shuffledRegular = shuffleDeck(regularCards);
+
+  // Priority cards go first (unshuffled relative to each other if you want them in order)
+  // or shuffled within priority group
+  return [...shuffledPriority, ...shuffledRegular];
 }
 
 /**
- * Build a shuffled Luck Card deck
- * @returns Shuffled array of LuckCard objects
+ * Build a shuffled Luck Card deck using cardManager configuration
+ * @returns Shuffled array of LuckCard objects with priority cards at top
  */
 export function buildLuckDeck(): LuckCard[] {
-  const deck = LUCK_CARD_FACTORIES.map(factory => factory());
-  return shuffleDeck(deck);
+  const config = getLuckCardConfig();
+  const priorityCards: LuckCard[] = [];
+  const regularCards: LuckCard[] = [];
+
+  // Build deck based on configuration
+  Object.entries(config).forEach(([cardKey, cardConfig]) => {
+    if (!cardConfig.enabled) return;
+
+    const cardName = CARD_NAME_MAP[cardKey as keyof typeof CARD_NAME_MAP];
+    const factory = LUCK_FACTORY_MAP[cardName];
+
+    if (!factory) {
+      console.warn(`Factory not found for luck card: ${cardName}`);
+      return;
+    }
+
+    // Create the specified quantity of cards
+    for (let i = 0; i < cardConfig.quantity; i++) {
+      const card = factory();
+      if (cardConfig.priority) {
+        priorityCards.push(card);
+      } else {
+        regularCards.push(card);
+      }
+    }
+  });
+
+  // Shuffle each group separately
+  const shuffledPriority = shuffleDeck(priorityCards);
+  const shuffledRegular = shuffleDeck(regularCards);
+
+  // Priority cards go first
+  return [...shuffledPriority, ...shuffledRegular];
 }

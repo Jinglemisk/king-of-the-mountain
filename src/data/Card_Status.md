@@ -10,6 +10,7 @@ This document contains a comprehensive breakdown of all cards in the game, how t
 **Category:** Holdable
 **Stats:** +1 Attack when equipped
 **Type:** Permanent equipment
+**WORKING?:**
 
 **How It Works:**
 1. Defined in `cards.ts:58-61` as a factory function
@@ -18,14 +19,13 @@ This document contains a comprehensive breakdown of all cards in the game, how t
 4. Attack bonus automatically calculated during combat via `playerStats.ts` using `item.attackBonus`
 5. Bonus remains active while equipped in equipment slot
 
-**WORKING?:**
-
 ---
 
 ### 2. Wooden Shield (4 copies)
 **Category:** Holdable
 **Stats:** +1 Defense when equipped
 **Type:** Permanent equipment
+**WORKING?:**
 
 **How It Works:**
 1. Defined in `cards.ts:64-67`
@@ -33,14 +33,13 @@ This document contains a comprehensive breakdown of all cards in the game, how t
 3. Defense bonus applied via `playerStats.ts` reading `item.defenseBonus`
 4. Used in combat defense rolls automatically when equipped
 
-**WORKING?:**
-
 ---
 
 ### 3. Robe (3 copies)
 **Category:** Wearable
 **Stats:** +1 Defense when equipped
 **Type:** Permanent equipment
+**WORKING?:**
 
 **How It Works:**
 1. Defined in `cards.ts:70-72`
@@ -48,21 +47,18 @@ This document contains a comprehensive breakdown of all cards in the game, how t
 3. Can only be equipped to wearable slot (enforced by `useEquipmentManagement.ts:canEquipItemInSlot`)
 4. Defense bonus calculated same as Wooden Shield
 
-**WORKING?:**
-
 ---
 
 ### 4. Crude Axe (3 copies)
 **Category:** Holdable
 **Stats:** +1 Attack when equipped
 **Type:** Permanent equipment
+**WORKING?:**
 
 **How It Works:**
 1. Defined in `cards.ts:75-77`
 2. Same mechanical flow as Dagger (holdable weapon with attack bonus)
 3. Can be dual-wielded with another holdable in two slots
-
-**WORKING?:**
 
 ---
 
@@ -71,6 +67,7 @@ This document contains a comprehensive breakdown of all cards in the game, how t
 **Stats:** None
 **Special:** step_back_before_resolve
 **Type:** Passive equipment effect
+**WORKING?:**
 
 **How It Works:**
 1. Defined in `cards.ts:80-85` with `special: 'step_back_before_resolve'`
@@ -81,8 +78,6 @@ This document contains a comprehensive breakdown of all cards in the game, how t
 3. Effect implemented via conditional logic, not effect executor
 4. No effect handler in `itemEffects.ts`, handled inline in turn logic
 
-**WORKING?:**
-
 ---
 
 ### 6. Trap (3 copies)
@@ -90,6 +85,7 @@ This document contains a comprehensive breakdown of all cards in the game, how t
 **Stats:** None
 **Special:** trap
 **Type:** Consumable placeable
+**WORKING?:**
 
 **How It Works:**
 1. Defined in `cards.ts:88-99` with `special: 'trap'` and `isConsumable: true`
@@ -104,8 +100,6 @@ This document contains a comprehensive breakdown of all cards in the game, how t
    - Scout players: immune, trap still removed but they resolve tile
 6. Item is consumed when placed (removed from inventory)
 
-**WORKING?:**
-
 ---
 
 ### 7. Luck Charm (2 copies)
@@ -113,6 +107,7 @@ This document contains a comprehensive breakdown of all cards in the game, how t
 **Stats:** None
 **Special:** luck_cancel
 **Type:** Consumable interrupt
+**WORKING?:**
 
 **How It Works:**
 1. Defined in `cards.ts:102-109` with `special: 'luck_cancel'`
@@ -123,8 +118,6 @@ This document contains a comprehensive breakdown of all cards in the game, how t
    - Returns Luck Charm to bottom of T1 treasure deck (`result.data.requiresReturn`)
 5. **NOTE:** UI for interrupt timing not fully implemented - this is partially working
 
-**WORKING?:**
-
 ---
 
 ### 8. Beer (2 copies)
@@ -132,6 +125,7 @@ This document contains a comprehensive breakdown of all cards in the game, how t
 **Stats:** None
 **Special:** heal_3_debuff_move
 **Type:** Consumable with side effect
+**WORKING?:**
 
 **How It Works:**
 1. Defined in `cards.ts:112-119` with `special: 'heal_3_debuff_move'`
@@ -145,8 +139,6 @@ This document contains a comprehensive breakdown of all cards in the game, how t
    - Returns -1 if `beer_debuff` is active
    - Decremented at end of turn via `decrementTempEffects` in `useTurnActions.ts:467`
 
-**WORKING?:**
-
 ---
 
 ### 9. Agility Draught (1 copy)
@@ -154,6 +146,7 @@ This document contains a comprehensive breakdown of all cards in the game, how t
 **Stats:** None
 **Special:** temp_defense_1
 **Type:** Consumable temporary buff
+**WORKING?:**
 
 **How It Works:**
 1. Defined in `cards.ts:122-125` with `special: 'temp_defense_1'`
@@ -166,7 +159,6 @@ This document contains a comprehensive breakdown of all cards in the game, how t
    - Added to defense rolls during combat in `useCombat.ts`
 5. Expires at end of turn (duration decremented)
 
-**WORKING?:**
 
 ---
 
@@ -176,6 +168,7 @@ This document contains a comprehensive breakdown of all cards in the game, how t
 **Category:** Wearable
 **Stats:** +2 Defense when equipped
 **Type:** Permanent equipment
+**WORKING?:**
 
 **How It Works:**
 1. Defined in `cards.ts:134-136`
@@ -183,7 +176,6 @@ This document contains a comprehensive breakdown of all cards in the game, how t
 3. Equipped to wearable slot only
 4. Replaces any existing wearable when equipped
 
-**WORKING?:**
 
 ---
 
@@ -191,13 +183,13 @@ This document contains a comprehensive breakdown of all cards in the game, how t
 **Category:** Holdable
 **Stats:** +2 Defense when equipped
 **Type:** Permanent equipment
+**WORKING?:**
 
 **How It Works:**
 1. Defined in `cards.ts:139-141`
 2. Same flow as Wooden Shield but +2 defense
 3. Can be equipped alongside another holdable
 
-**WORKING?:**
 
 ---
 
@@ -205,13 +197,13 @@ This document contains a comprehensive breakdown of all cards in the game, how t
 **Category:** Holdable
 **Stats:** +2 Attack when equipped
 **Type:** Permanent equipment
+**WORKING?:**
 
 **How It Works:**
 1. Defined in `cards.ts:144-146`
 2. Same flow as Dagger/Crude Axe but +2 attack
 3. Holdable weapon with higher damage
 
-**WORKING?:**
 
 ---
 
@@ -220,6 +212,7 @@ This document contains a comprehensive breakdown of all cards in the game, how t
 **Stats:** +2 Attack vs creatures only
 **Special:** creatures_only
 **Type:** Permanent equipment with restriction
+**WORKING?:**
 
 **How It Works:**
 1. Defined in `cards.ts:149-156` with `special: 'creatures_only'`
@@ -228,7 +221,6 @@ This document contains a comprehensive breakdown of all cards in the game, how t
 4. **NOTE:** Combat system needs to check `item.special === 'creatures_only'` and conditionally apply bonus
 5. Check `useCombat.ts` for implementation of this restriction in PvE vs PvP combat
 
-**WORKING?:**
 
 ---
 
@@ -236,6 +228,7 @@ This document contains a comprehensive breakdown of all cards in the game, how t
 **Category:** Wearable
 **Stats:** +1 movement roll
 **Type:** Permanent equipment
+**WORKING?:**
 
 **How It Works:**
 1. Defined in `cards.ts:159-160` with `movementBonus: 1`
@@ -245,7 +238,6 @@ This document contains a comprehensive breakdown of all cards in the game, how t
    - Added to dice roll in `useTurnActions.ts:410` (currently only checks tempEffects)
    - **NOTE:** Need to verify if equipment movement bonuses are implemented alongside temp effect bonuses
 
-**WORKING?:**
 
 ---
 
@@ -254,6 +246,7 @@ This document contains a comprehensive breakdown of all cards in the game, how t
 **Stats:** None
 **Special:** temp_attack_1
 **Type:** Consumable temporary buff
+**WORKING?:**
 
 **How It Works:**
 1. Defined in `cards.ts:163-170` with `special: 'temp_attack_1'`
@@ -262,7 +255,6 @@ This document contains a comprehensive breakdown of all cards in the game, how t
 3. Bonus applied via `getTempEffectCombatBonuses` during all attack rolls this turn
 4. Expires at end of turn
 
-**WORKING?:**
 
 ---
 
@@ -271,6 +263,7 @@ This document contains a comprehensive breakdown of all cards in the game, how t
 **Stats:** None
 **Special:** invisibility
 **Type:** Consumable status effect
+**WORKING?:**
 
 **How It Works:**
 1. Defined in `cards.ts:173-180` with `special: 'invisibility'`
@@ -283,7 +276,6 @@ This document contains a comprehensive breakdown of all cards in the game, how t
    - Cleared if moved by effect: `luckEffects.ts:31-33` and `luckEffects.ts:71-73`
 5. Visual effect should hide player from other players (UI implementation)
 
-**WORKING?:**
 
 ---
 
@@ -292,6 +284,7 @@ This document contains a comprehensive breakdown of all cards in the game, how t
 **Stats:** None
 **Special:** prevent_duel
 **Type:** Consumable interrupt
+**WORKING?:**
 
 **How It Works:**
 1. Defined in `cards.ts:183-186` with `special: 'prevent_duel'`
@@ -304,7 +297,6 @@ This document contains a comprehensive breakdown of all cards in the game, how t
    - Blocks both player's initiated duels and received duels
 5. Expires at end of turn
 
-**WORKING?:**
 
 ---
 
@@ -314,6 +306,7 @@ This document contains a comprehensive breakdown of all cards in the game, how t
 **Category:** Wearable
 **Stats:** +3 Defense, -1 movement
 **Type:** Permanent equipment with trade-off
+**WORKING?:**
 
 **How It Works:**
 1. Defined in `cards.ts:195-202` with `defenseBonus: 3`, `movementBonus: -1`
@@ -322,7 +315,6 @@ This document contains a comprehensive breakdown of all cards in the game, how t
 4. Movement penalty should reduce all movement rolls by 1
 5. Same verification needed as Velvet Cloak for movement bonus implementation
 
-**WORKING?:**
 
 ---
 
@@ -331,6 +323,7 @@ This document contains a comprehensive breakdown of all cards in the game, how t
 **Stats:** None
 **Special:** full_heal
 **Type:** Consumable healing
+**WORKING?:**
 
 **How It Works:**
 1. Defined in `cards.ts:205-212` with `special: 'full_heal'`
@@ -339,7 +332,6 @@ This document contains a comprehensive breakdown of all cards in the game, how t
    - If already at full HP, still consumes item but logs different message
 3. Instant full restore, no duration or temp effect
 
-**WORKING?:**
 
 ---
 
@@ -347,13 +339,13 @@ This document contains a comprehensive breakdown of all cards in the game, how t
 **Category:** Holdable
 **Stats:** +3 Attack when equipped
 **Type:** Permanent equipment
+**WORKING?:**
 
 **How It Works:**
 1. Defined in `cards.ts:215-216`
 2. Same flow as other holdable weapons
 3. Highest attack bonus equipment in game (+3)
 
-**WORKING?:**
 
 ---
 
@@ -362,6 +354,7 @@ This document contains a comprehensive breakdown of all cards in the game, how t
 **Stats:** None
 **Special:** blink
 **Type:** Consumable teleport
+**WORKING?:**
 
 **How It Works:**
 1. Defined in `cards.ts:219-226` with `special: 'blink'`
@@ -373,7 +366,6 @@ This document contains a comprehensive breakdown of all cards in the game, how t
    - Ignores pass-through effects (no trap/ambush checks during teleport)
 4. **NOTE:** UI for choosing direction (+2 vs -2) needs to be implemented
 
-**WORKING?:**
 
 ---
 
@@ -382,6 +374,7 @@ This document contains a comprehensive breakdown of all cards in the game, how t
 **Stats:** None
 **Special:** prevent_1_hp
 **Type:** Consumable protection
+**WORKING?:**
 
 **How It Works:**
 1. Defined in `cards.ts:229-236` with `special: 'prevent_1_hp'`
@@ -394,7 +387,6 @@ This document contains a comprehensive breakdown of all cards in the game, how t
    - Remove wardstone effect after preventing damage
 4. **NOTE:** Combat system must check for wardstone before applying damage
 
-**WORKING?:**
 
 ---
 
@@ -403,6 +395,7 @@ This document contains a comprehensive breakdown of all cards in the game, how t
 ### 23. Exhaustion (4 copies)
 **Effect:** move_back
 **Value:** 1 tile
+**WORKING?:**
 
 **How It Works:**
 1. Defined in `cards.ts:276-279` with `effect: 'move_back'`, `value: 1`
@@ -412,24 +405,24 @@ This document contains a comprehensive breakdown of all cards in the game, how t
    - Clears invisibility if player was invisible
 4. No tile resolution at new position (just moves back)
 
-**WORKING?:**
 
 ---
 
 ### 24. Cave-in (3 copies)
 **Effect:** move_back
 **Value:** 3 tiles
+**WORKING?:**
 
 **How It Works:**
 1. Defined in `cards.ts:282-284` with `effect: 'move_back'`, `value: 3`
 2. Same `moveBack` effect as Exhaustion but moves 3 tiles instead of 1
 
-**WORKING?:**
 
 ---
 
 ### 25. Faint (2 copies)
 **Effect:** skip_turn
+**WORKING?:**
 
 **How It Works:**
 1. Defined in `cards.ts:287-288` with `effect: 'skip_turn'`
@@ -440,12 +433,12 @@ This document contains a comprehensive breakdown of all cards in the game, how t
    - Auto-ends turn immediately with log message
    - Duration decremented, so only skips NEXT turn, not current
 
-**WORKING?:**
 
 ---
 
 ### 26. Vital Energy (2 copies)
 **Effect:** roll_again
+**WORKING?:**
 
 **How It Works:**
 1. Defined in `cards.ts:291-292` with `effect: 'roll_again'`
@@ -455,13 +448,13 @@ This document contains a comprehensive breakdown of all cards in the game, how t
    - **IMPORTANT:** Calls `resolveTile` for the NEW tile landed on
 3. This means player can chain into another luck card, treasure, or enemy encounter
 
-**WORKING?:**
 
 ---
 
 ### 27. Lost Treasure (2 copies)
 **Effect:** skip_draw_t1
 **Value:** 2 treasures
+**WORKING?:**
 
 **How It Works:**
 1. Defined in `cards.ts:295-296` with `effect: 'skip_draw_t1'`, `value: 2`
@@ -471,13 +464,13 @@ This document contains a comprehensive breakdown of all cards in the game, how t
    - Returns treasures in `result.data.treasures`
 3. Treasures shown in CardRevealModal and added to inventory (handled in `useTurnActions.ts:161-169`)
 
-**WORKING?:**
 
 ---
 
 ### 28. Jinn Thief (3 copies)
 **Effect:** steal_item
 **Options:** requiresChoice: true
+**WORKING?:**
 
 **How It Works:**
 1. Defined in `cards.ts:299-301` with `effect: 'steal_item'`, `requiresChoice: true`
@@ -492,13 +485,13 @@ This document contains a comprehensive breakdown of all cards in the game, how t
    - Re-executes effect with chosen itemId
 4. Item returns to bottom of matching treasure tier deck (not implemented yet)
 
-**WORKING?:**
 
 ---
 
 ### 29. Sprained Wrist (3 copies)
 **Effect:** lose_hp
 **Value:** 1 HP
+**WORKING?:**
 
 **How It Works:**
 1. Defined in `cards.ts:304-306` with `effect: 'lose_hp'`, `value: 1`
@@ -510,13 +503,13 @@ This document contains a comprehensive breakdown of all cards in the game, how t
    - Logs damage taken
 3. Should check for Wardstone protection before applying damage (not currently implemented)
 
-**WORKING?:**
 
 ---
 
 ### 30. Covered Pit (3 copies)
 **Effect:** draw_t1
 **Value:** 1 treasure
+**WORKING?:**
 
 **How It Works:**
 1. Defined in `cards.ts:309-311` with `effect: 'draw_t1'`, `value: 1`
@@ -525,13 +518,13 @@ This document contains a comprehensive breakdown of all cards in the game, how t
    - Returns treasure in `result.data.treasures`
 3. Treasure shown in CardRevealModal and added to inventory (same flow as Lost Treasure)
 
-**WORKING?:**
 
 ---
 
 ### 31. White-Bearded Spirit (2 copies)
 **Effect:** move_forward
 **Value:** 2 tiles
+**WORKING?:**
 
 **How It Works:**
 1. Defined in `cards.ts:314-315` with `effect: 'move_forward'`, `value: 2`
@@ -540,13 +533,13 @@ This document contains a comprehensive breakdown of all cards in the game, how t
    - Clears invisibility if active
 3. No tile resolution at new position (just moves forward)
 
-**WORKING?:**
 
 ---
 
 ### 32. Mystic Wave (2 copies)
 **Effect:** swap_position
 **Options:** requiresChoice: true
+**WORKING?:**
 
 **How It Works:**
 1. Defined in `cards.ts:318-319` with `effect: 'swap_position'`, `requiresChoice: true`
@@ -558,12 +551,12 @@ This document contains a comprehensive breakdown of all cards in the game, how t
 3. If no other players, effect fizzles
 4. Swap is instant, no tile resolution at new positions
 
-**WORKING?:**
 
 ---
 
 ### 33. Nefarious Spirit (2 copies)
 **Effect:** forced_duel
+**WORKING?:**
 
 **How It Works:**
 1. Defined in `cards.ts:322-323` with `effect: 'forced_duel'`
@@ -575,13 +568,13 @@ This document contains a comprehensive breakdown of all cards in the game, how t
    - Starts combat via `startCombat` with `canRetreat: false` (forced duel, no retreat)
 3. Combat modal automatically shown after effect
 
-**WORKING?:**
 
 ---
 
 ### 34. Ambush Opportunity (2 copies)
 **Effect:** ambush
 **Options:** canBeKept: true
+**WORKING?:**
 
 **How It Works:**
 1. Defined in `cards.ts:326-327` with `effect: 'ambush'`, `canBeKept: true`
@@ -598,13 +591,13 @@ This document contains a comprehensive breakdown of all cards in the game, how t
    - Starts combat (ambusher attacks, no retreat for victim)
    - Ambush removed from tile after triggering
 
-**WORKING?:**
 
 ---
 
 ### 35. Instinct (2 copies)
 **Effect:** instinct
 **Options:** canBeKept: true
+**WORKING?:**
 
 **How It Works:**
 1. Defined in `cards.ts:330-331` with `effect: 'instinct'`, `canBeKept: true`
@@ -619,7 +612,6 @@ This document contains a comprehensive breakdown of all cards in the game, how t
    - Continues with tile resolution at adjusted position
 5. Single use - consumed when activated or skipped
 
-**WORKING?:**
 
 ---
 

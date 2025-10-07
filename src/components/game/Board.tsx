@@ -1,6 +1,6 @@
 /**
  * Game board component
- * Displays the 20-tile board in a snake layout with player tokens
+ * Displays the 40-tile board in a snake layout with player tokens
  */
 
 import type { Tile, Player } from '../../types';
@@ -15,7 +15,7 @@ interface BoardProps {
 
 /**
  * Visual representation of the game board
- * @param tiles - Array of 20 tiles
+ * @param tiles - Array of 40 tiles
  * @param players - Map of all players
  * @param currentPlayerId - ID of player whose turn it is
  * @param onTileClick - Handler for clicking a tile
@@ -63,9 +63,9 @@ export function Board({ tiles, players, currentPlayerId, onTileClick }: BoardPro
     }
   };
 
-  // Split tiles into rows for snake layout (4 rows of 5 tiles each)
+  // Split tiles into rows for snake layout (8 rows of 5 tiles each)
   const rows: Tile[][] = [];
-  for (let i = 0; i < 4; i++) {
+  for (let i = 0; i < 8; i++) {
     const row = tiles.slice(i * 5, (i + 1) * 5);
     // Reverse odd rows for snake pattern
     if (i % 2 === 1) {

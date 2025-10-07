@@ -413,7 +413,7 @@ export function GameScreen({ gameState, playerId }: GameScreenProps) {
               onClick={() => turnActions.handleInstinctChoice(1)}
               variant="primary"
               fullWidth
-              disabled={instinctPosition === 19}
+              disabled={instinctPosition === 39}
             >
               Move Forward (+1 tile)
             </Button>

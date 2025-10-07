@@ -15,10 +15,10 @@ import type { Tile, TileType } from '../types';
  * Adjust these values to change board size and key positions
  */
 export const BOARD_CONFIG = {
-  totalTiles: 20,           // Total number of tiles on the board
+  totalTiles: 40,           // Total number of tiles on the board
   startTileIndex: 0,        // Starting position (always first tile)
-  finalTileIndex: 19,       // Winning position (always last tile)
-  sanctuaryTiles: [7, 9, 17], // Safe tiles where no duels are allowed
+  finalTileIndex: 39,       // Winning position (always last tile)
+  sanctuaryTiles: [],       // Safe tiles where no duels are allowed
 };
 
 // ============================================================================
@@ -47,36 +47,59 @@ export function getTileDistribution(): Record<TileType, number> {
 /**
  * Complete board layout pattern (left to right, top to bottom)
  *
- * Layout visualization (4 rows of 5 tiles):
- * Row 1: [0-4]   Start → Treasure1 → Treasure1 → Luck → Luck
- * Row 2: [5-9]   Treasure2 → Treasure2 → Sanctuary → Treasure1 → Sanctuary
- * Row 3: [10-14] Luck → Treasure3 → Treasure2 → Luck → Luck
- * Row 4: [15-19] Treasure3 → Treasure1 → Sanctuary → Treasure3 → Final
+ * Layout visualization (8 rows of 5 tiles):
+ * Row 1: [0-4]   Start → Treasure1 → Luck → Treasure2 → Luck
+ * Row 2: [5-9]   Treasure1 → Luck → Treasure3 → Treasure2 → Luck
+ * Row 3: [10-14] Treasure1 → Luck → Treasure2 → Treasure3 → Luck
+ * Row 4: [15-19] Treasure1 → Luck → Treasure3 → Treasure2 → Luck
+ * Row 5: [20-24] Treasure1 → Luck → Treasure2 → Treasure3 → Luck
+ * Row 6: [25-29] Treasure1 → Luck → Treasure3 → Treasure2 → Luck
+ * Row 7: [30-34] Treasure1 → Luck → Treasure2 → Treasure3 → Luck
+ * Row 8: [35-39] Treasure1 → Luck → Treasure2 → Treasure3 → Final
  *
- * Original layout had enemy tiles at positions: 2, 4, 6, 9, 11, 13, 16
- * These have been replaced with treasure and luck tiles for variety
+ * Board filled with luck and treasure tiles for variety
  */
 export const BOARD_PATTERN: TileType[] = [
   'start',      // 0  - Starting tile
   'treasure1',  // 1  - Tier 1 treasure
-  'treasure1',  // 2  - Tier 1 treasure (was enemy1)
-  'luck',       // 3  - Luck card
-  'luck',       // 4  - Luck card (was enemy1)
-  'treasure2',  // 5  - Tier 2 treasure
-  'treasure2',  // 6  - Tier 2 treasure (was enemy2)
-  'sanctuary',  // 7  - Safe sanctuary
-  'treasure1',  // 8  - Tier 1 treasure
-  'sanctuary',  // 9  - Safe sanctuary (was enemy2)
-  'luck',       // 10 - Luck card
-  'treasure3',  // 11 - Tier 3 treasure (was enemy2)
+  'luck',       // 2  - Luck card
+  'treasure2',  // 3  - Tier 2 treasure
+  'luck',       // 4  - Luck card
+  'treasure1',  // 5  - Tier 1 treasure
+  'luck',       // 6  - Luck card
+  'treasure3',  // 7  - Tier 3 treasure
+  'treasure2',  // 8  - Tier 2 treasure
+  'luck',       // 9  - Luck card
+  'treasure1',  // 10 - Tier 1 treasure
+  'luck',       // 11 - Luck card
   'treasure2',  // 12 - Tier 2 treasure
-  'luck',       // 13 - Luck card (was enemy3)
+  'treasure3',  // 13 - Tier 3 treasure
   'luck',       // 14 - Luck card
-  'treasure3',  // 15 - Tier 3 treasure
-  'treasure1',  // 16 - Tier 1 treasure (was enemy3)
-  'sanctuary',  // 17 - Safe sanctuary
-  'treasure3',  // 18 - Tier 3 treasure
-  'final',      // 19 - Final/winning tile
+  'treasure1',  // 15 - Tier 1 treasure
+  'luck',       // 16 - Luck card
+  'treasure3',  // 17 - Tier 3 treasure
+  'treasure2',  // 18 - Tier 2 treasure
+  'luck',       // 19 - Luck card
+  'treasure1',  // 20 - Tier 1 treasure
+  'luck',       // 21 - Luck card
+  'treasure2',  // 22 - Tier 2 treasure
+  'treasure3',  // 23 - Tier 3 treasure
+  'luck',       // 24 - Luck card
+  'treasure1',  // 25 - Tier 1 treasure
+  'luck',       // 26 - Luck card
+  'treasure3',  // 27 - Tier 3 treasure
+  'treasure2',  // 28 - Tier 2 treasure
+  'luck',       // 29 - Luck card
+  'treasure1',  // 30 - Tier 1 treasure
+  'luck',       // 31 - Luck card
+  'treasure2',  // 32 - Tier 2 treasure
+  'treasure3',  // 33 - Tier 3 treasure
+  'luck',       // 34 - Luck card
+  'treasure1',  // 35 - Tier 1 treasure
+  'luck',       // 36 - Luck card
+  'treasure2',  // 37 - Tier 2 treasure
+  'treasure3',  // 38 - Tier 3 treasure
+  'final',      // 39 - Final/winning tile
 ];
 
 // ============================================================================
@@ -147,7 +170,7 @@ export function generateBoardTiles(): Tile[] {
 
 /**
  * Get tile information by position
- * @param position - Tile position (0-19)
+ * @param position - Tile position (0-39)
  * @returns Tile object at that position, or null if invalid
  */
 export function getTileByPosition(position: number): Tile | null {
