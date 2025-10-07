@@ -3,7 +3,7 @@
  * Main gameplay screen with board, inventory, combat, and turn management
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import type { GameState, Item, Enemy, LuckCard } from '../types';
 import { Board } from '../components/game/Board';
 import { Card } from '../components/game/Card';
@@ -96,6 +96,9 @@ export function GameScreen({ gameState, playerId }: GameScreenProps) {
   // Provide default turn player for non-active games
   const safeTurnPlayer = currentTurnPlayer || currentPlayer;
 
+  // Ref to track if we're already processing a skip turn (prevents infinite loop)
+  const isProcessingSkipRef = useRef(false);
+
   // Initialize hooks
   const { draggedItem, setDraggedItem, handleDragStart, handleDragOver } = useDragAndDrop();
 
@@ -187,8 +190,21 @@ export function GameScreen({ gameState, playerId }: GameScreenProps) {
    * Auto-skip turn if player has skip_turn temp effect
    */
   useEffect(() => {
+    // Reset processing flag when it's not my turn or skip effect is gone
+    if (!isMyTurn || !shouldSkipTurn(currentPlayer)) {
+      isProcessingSkipRef.current = false;
+      return;
+    }
+
     // Check if it's my turn, I'm alive, and I should skip
     if (isMyTurn && currentPlayer.isAlive && shouldSkipTurn(currentPlayer) && gameState.status === 'active') {
+      // Prevent infinite loop - only process once
+      if (isProcessingSkipRef.current) {
+        return;
+      }
+
+      isProcessingSkipRef.current = true;
+
       // Log the skip message
       addLog(
         gameState.lobbyCode,

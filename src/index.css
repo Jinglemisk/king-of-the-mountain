@@ -573,11 +573,11 @@ h4 { font-size: clamp(0.9rem, 1vw, 1.2rem); }
   box-sizing: border-box;
   display: flex;
   align-items: center;
-  gap: 1vw;
-  overflow-x: auto;
+  gap: clamp(8px, 1vw, 16px);
+  overflow-x: hidden;
   overflow-y: hidden;
   flex-shrink: 0;
-  max-height: 12vh;
+  height: fit-content;
   min-height: fit-content;
 }
 
@@ -613,11 +613,12 @@ h4 { font-size: clamp(0.9rem, 1vw, 1.2rem); }
   gap: clamp(8px, 1vw, 16px);
   width: 100%;
   flex-wrap: nowrap;
+  flex: 1;
 }
 
 .game-center-actions .action-buttons h3 {
   margin: 0;
-  padding-right: clamp(8px, 1vw, 16px);
+  padding-right: clamp(10px, 1.2vw, 18px);
   border-right: 2px solid var(--color-stone-light);
   font-size: clamp(0.9rem, 1.1vw, 1.3rem);
   white-space: nowrap;
@@ -627,23 +628,29 @@ h4 { font-size: clamp(0.9rem, 1vw, 1.2rem); }
 .game-center-actions .actions-grid {
   display: flex;
   gap: clamp(6px, 0.8vw, 12px);
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   flex: 1;
   align-items: center;
+  overflow-x: hidden;
+  overflow-y: hidden;
 }
 
 .game-center-actions .end-turn-section {
   margin: 0;
-  padding-left: clamp(8px, 1vw, 16px);
+  padding-left: clamp(10px, 1.2vw, 18px);
   border-left: 2px solid var(--color-stone-light);
   flex-shrink: 0;
 }
 
+.game-center-actions .end-turn-section .btn {
+  width: auto;
+}
+
 .game-center-actions .btn {
-  padding: clamp(6px, 0.8vh, 12px) clamp(8px, 1vw, 16px);
-  font-size: clamp(0.7rem, 0.85vw, 1rem);
+  padding: clamp(6px, 0.8vh, 12px) clamp(10px, 1.2vw, 18px);
+  font-size: clamp(0.75rem, 0.9vw, 1.05rem);
   white-space: nowrap;
-  flex-shrink: 1;
+  flex-shrink: 0;
   min-width: fit-content;
 }
 
@@ -685,7 +692,10 @@ h4 { font-size: clamp(0.9rem, 1vw, 1.2rem); }
   min-height: 0;
 }
 
-/* Deprecated - Old action panel styling (no longer used) */
+/* ============================================================================
+   DEPRECATED STYLES - Old Layout (Pre-3-column refactor)
+   These are kept hidden for backwards compatibility
+   ============================================================================ */
 .game-stats-panel {
   display: contents;
 }
@@ -694,7 +704,6 @@ h4 { font-size: clamp(0.9rem, 1vw, 1.2rem); }
   display: none;
 }
 
-/* DEPRECATED - keeping for backwards compatibility but not used in new layout */
 .game-side-panel {
   display: none;
 }
@@ -1152,15 +1161,18 @@ h4 { font-size: clamp(0.9rem, 1vw, 1.2rem); }
   background: transparent;
   border: none;
   border-radius: 0;
-  margin-top: 0;
+  margin: 0;
+  padding: 0;
   overflow: hidden;
   height: 100%;
-  flex: 1;
+  flex: 1 1 100%;
   min-height: 0;
+  max-height: none;
   display: flex;
   flex-direction: column;
 }
 
+/* DEPRECATED: Old logs section styling (kept for backwards compatibility if logs rendered outside left panel) */
 .logs-section {
   background: var(--color-stone-dark);
   border: 2px solid var(--color-stone-light);
@@ -1176,17 +1188,18 @@ h4 { font-size: clamp(0.9rem, 1vw, 1.2rem); }
   display: flex;
   border-bottom: 2px solid var(--color-stone-light);
   flex-shrink: 0;
+  flex-grow: 0;
 }
 
 .logs-header button {
   flex: 1;
   background: var(--color-stone);
   border: none;
-  padding: clamp(8px, 1vh, 14px) var(--spacing-sm);
+  padding: clamp(10px, 1.2vh, 16px) var(--spacing-sm);
   color: var(--color-text-secondary);
   cursor: pointer;
   transition: background 0.3s ease;
-  font-size: clamp(0.75rem, 0.9vw, 1.1rem);
+  font-size: clamp(0.8rem, 1vw, 1.2rem);
   font-weight: bold;
 }
 
@@ -1198,24 +1211,27 @@ h4 { font-size: clamp(0.9rem, 1vw, 1.2rem); }
 
 .logs-content {
   overflow-y: auto;
-  padding: clamp(8px, 1vh, 16px) clamp(8px, 0.8vw, 16px);
-  flex: 1 1 auto;
+  overflow-x: hidden;
+  padding: clamp(10px, 1.2vh, 18px) clamp(10px, 1vw, 18px);
+  flex: 1 1 100%;
   min-height: 0;
+  height: 100%;
 }
 
 .event-logs {
   display: flex;
   flex-direction: column;
-  gap: clamp(6px, 0.8vh, 12px);
+  gap: clamp(8px, 1vh, 14px);
+  padding-bottom: clamp(8px, 1vh, 14px);
 }
 
 .log-entry {
-  padding: clamp(6px, 0.8vh, 12px) clamp(6px, 0.6vw, 12px);
+  padding: clamp(8px, 1vh, 14px) clamp(8px, 0.8vw, 14px);
   background: rgba(0, 0, 0, 0.2);
   border-radius: var(--radius-sm);
-  font-size: clamp(0.7rem, 0.85vw, 1rem);
+  font-size: clamp(0.75rem, 0.9vw, 1.05rem);
   display: flex;
-  gap: clamp(6px, 0.6vw, 10px);
+  gap: clamp(8px, 0.8vw, 12px);
 }
 
 .log-entry.important {
@@ -1225,13 +1241,15 @@ h4 { font-size: clamp(0.9rem, 1vw, 1.2rem); }
 
 .log-time {
   color: var(--color-text-muted);
-  font-size: clamp(0.65rem, 0.75vw, 0.9rem);
+  font-size: clamp(0.7rem, 0.8vw, 0.95rem);
   white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .log-message {
   color: var(--color-text-primary);
   line-height: 1.4;
+  flex: 1;
 }
 
 .log-combat {
@@ -1242,7 +1260,7 @@ h4 { font-size: clamp(0.9rem, 1vw, 1.2rem); }
   border-left: 3px solid var(--color-gold);
 }
 
-/* Deprecated logs toggle - no longer used */
+/* DEPRECATED: Logs toggle button - removed in 3-column layout refactor */
 .logs-toggle {
   display: none;
 }
@@ -1252,11 +1270,12 @@ h4 { font-size: clamp(0.9rem, 1vw, 1.2rem); }
   display: flex;
   align-items: center;
   justify-content: center;
-  flex: 1;
+  flex: 1 1 100%;
   min-height: 0;
+  height: 100%;
   color: var(--color-text-secondary);
   font-style: italic;
-  font-size: clamp(0.8rem, 0.95vw, 1.1rem);
+  font-size: clamp(0.85rem, 1vw, 1.15rem);
 }
 
 .chat-placeholder p {
@@ -1265,6 +1284,7 @@ h4 { font-size: clamp(0.9rem, 1vw, 1.2rem); }
 
 .logs-content .chat-placeholder {
   height: 100%;
+  width: 100%;
 }
 
 /* ============================================================================

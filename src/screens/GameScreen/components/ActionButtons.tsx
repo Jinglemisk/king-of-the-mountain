@@ -64,17 +64,17 @@ export function ActionButtons({
       <h3>Your Turn!</h3>
       <div className="actions-grid">
         <Button onClick={onMove} variant="primary" disabled={hasActed}>
-          🎲 Roll & Move
+          🎲 Move
         </Button>
         <Button onClick={onSleep} variant="secondary" disabled={hasActed}>
-          😴 Sleep (Restore HP)
+          😴 Sleep
         </Button>
         <Button
           onClick={onShowDuelModal}
           variant="secondary"
           disabled={!canDuel || isSanctuary}
         >
-          ⚔️ Duel {isSanctuary ? '(Sanctuary)' : canDuel ? '' : '(No players)'}
+          ⚔️ Duel
         </Button>
         {canLoot && (
           <Button
@@ -84,7 +84,7 @@ export function ActionButtons({
             }}
             variant="secondary"
           >
-            💰 Loot Unconscious Player
+            💰 Loot
           </Button>
         )}
         {hasAmbush && (
@@ -92,11 +92,11 @@ export function ActionButtons({
             onClick={onPlaceAmbush}
             variant="secondary"
           >
-            🃏 Place Ambush
+            🃏 Ambush
           </Button>
         )}
         <Button onClick={() => {}} variant="secondary" disabled>
-          🤝 Trade (Coming soon)
+          🤝 Trade
         </Button>
       </div>
       <div className="end-turn-section">
