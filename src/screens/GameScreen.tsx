@@ -396,6 +396,7 @@ export function GameScreen({ gameState, playerId }: GameScreenProps) {
         isOpen={showInventoryFull}
         currentItems={currentPlayer.inventory || []}
         newItems={pendingItems}
+        equipment={currentPlayer.equipment}
         onDiscard={inventoryManagement.handleInventoryDiscard}
         maxSlots={currentPlayer.inventory ? currentPlayer.inventory.length : 4}
       />

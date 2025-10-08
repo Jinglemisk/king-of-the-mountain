@@ -77,17 +77,18 @@ export function useInventoryManagement({
   };
 
   /**
-   * Handle inventory full modal - player selected which items to keep
+   * Handle inventory full modal - player selected which items to keep and equipment to use
    */
-  const handleInventoryDiscard = async (itemsToKeep: (Item | null)[]) => {
-    // Update inventory and log in single operation
+  const handleInventoryDiscard = async (itemsToKeep: (Item | null)[], updatedEquipment: any) => {
+    // Update inventory, equipment, and log in single operation
     await updateGameStateWithLog(
       gameState.lobbyCode,
       {
         [`players/${playerId}/inventory`]: normalizeInventory(itemsToKeep, currentPlayer.class),
+        [`players/${playerId}/equipment`]: updatedEquipment,
       },
       'action',
-      `${currentPlayer.nickname} reorganized inventory`,
+      `${currentPlayer.nickname} reorganized inventory and equipment`,
       gameState.logs,
       playerId
     );

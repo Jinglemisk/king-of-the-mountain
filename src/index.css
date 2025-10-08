@@ -1781,3 +1781,129 @@ h4 { font-size: clamp(0.9rem, 1vw, 1.2rem); }
 .looting-actions {
   margin-top: var(--spacing-md);
 }
+
+/* ============================================================================
+   INVENTORY FULL MODAL STYLES
+   ============================================================================ */
+
+.equipment-preview {
+  margin-bottom: var(--spacing-lg);
+  padding: var(--spacing-md);
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-stone-lighter);
+}
+
+.equipment-preview h4 {
+  margin-bottom: var(--spacing-md);
+  text-align: center;
+  color: var(--color-gold);
+}
+
+.equipment-mini-slots {
+  display: flex;
+  gap: var(--spacing-md);
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.mini-slot {
+  width: 100px;
+  text-align: center;
+  cursor: pointer;
+  padding: var(--spacing-sm);
+  border: 2px solid var(--color-stone-lighter);
+  border-radius: var(--radius-md);
+  background: var(--color-stone-dark);
+  transition: all 0.2s ease;
+}
+
+.mini-slot:hover {
+  border-color: var(--color-gold);
+  box-shadow: 0 0 10px rgba(212, 175, 55, 0.3);
+}
+
+.mini-slot label {
+  display: block;
+  font-size: 0.85rem;
+  color: var(--color-text-secondary);
+  margin-bottom: var(--spacing-xs);
+  font-weight: bold;
+}
+
+.empty-mini-slot {
+  height: 80px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.5;
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+}
+
+.item-choice.equipped {
+  border: 2px solid var(--color-gold);
+  box-shadow: 0 0 15px rgba(255, 215, 0, 0.5);
+  background: linear-gradient(135deg, var(--color-stone) 0%, rgba(212, 175, 55, 0.1) 100%);
+}
+
+.item-actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+  margin-top: var(--spacing-sm);
+}
+
+.action-btn {
+  padding: var(--spacing-xs) var(--spacing-sm);
+  font-size: 0.9rem;
+  background: var(--color-stone-light);
+  border: 1px solid var(--color-stone-lighter);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  color: var(--color-text-primary);
+  transition: all 0.2s ease;
+  font-family: inherit;
+}
+
+.action-btn:hover {
+  background: var(--color-bronze);
+  border-color: var(--color-gold);
+  color: var(--color-text-primary);
+}
+
+.equip-options {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+  margin-top: var(--spacing-xs);
+}
+
+.equip-btn {
+  padding: var(--spacing-xs) var(--spacing-sm);
+  font-size: 0.8rem;
+  background: #2d5a2d;
+  border: 1px solid #3d6a3d;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  color: var(--color-text-primary);
+  transition: all 0.2s ease;
+  font-family: inherit;
+}
+
+.equip-btn:hover {
+  background: #3d7a3d;
+  border-color: var(--color-gold);
+  box-shadow: 0 0 8px rgba(61, 122, 61, 0.5);
+}
+
+.status.equipped {
+  color: var(--color-gold);
+  font-weight: bold;
+  font-size: 0.9rem;
+  text-align: center;
+  padding: var(--spacing-xs);
+  background: rgba(212, 175, 55, 0.2);
+  border-radius: var(--radius-sm);
+  text-shadow: 0 0 5px rgba(212, 175, 55, 0.5);
+}
