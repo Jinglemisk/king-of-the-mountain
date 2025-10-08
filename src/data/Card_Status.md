@@ -10,7 +10,7 @@ This document contains a comprehensive breakdown of all cards in the game, how t
 **Category:** Holdable
 **Stats:** +1 Attack when equipped
 **Type:** Permanent equipment
-**WORKING?:**
+**WORKING?:** YES.
 
 **How It Works:**
 1. Defined in `cards.ts:58-61` as a factory function
@@ -25,7 +25,7 @@ This document contains a comprehensive breakdown of all cards in the game, how t
 **Category:** Holdable
 **Stats:** +1 Defense when equipped
 **Type:** Permanent equipment
-**WORKING?:**
+**WORKING?:** YES.
 
 **How It Works:**
 1. Defined in `cards.ts:64-67`
@@ -39,7 +39,7 @@ This document contains a comprehensive breakdown of all cards in the game, how t
 **Category:** Wearable
 **Stats:** +1 Defense when equipped
 **Type:** Permanent equipment
-**WORKING?:**
+**WORKING?:** YES.
 
 **How It Works:**
 1. Defined in `cards.ts:70-72`
@@ -53,7 +53,7 @@ This document contains a comprehensive breakdown of all cards in the game, how t
 **Category:** Holdable
 **Stats:** +1 Attack when equipped
 **Type:** Permanent equipment
-**WORKING?:**
+**WORKING?:** YES.
 
 **How It Works:**
 1. Defined in `cards.ts:75-77`
@@ -183,7 +183,7 @@ This document contains a comprehensive breakdown of all cards in the game, how t
 **Category:** Holdable
 **Stats:** +2 Defense when equipped
 **Type:** Permanent equipment
-**WORKING?:**
+**WORKING?:** YES.
 
 **How It Works:**
 1. Defined in `cards.ts:139-141`
@@ -197,7 +197,7 @@ This document contains a comprehensive breakdown of all cards in the game, how t
 **Category:** Holdable
 **Stats:** +2 Attack when equipped
 **Type:** Permanent equipment
-**WORKING?:**
+**WORKING?:** YES.
 
 **How It Works:**
 1. Defined in `cards.ts:144-146`
@@ -339,7 +339,7 @@ This document contains a comprehensive breakdown of all cards in the game, how t
 **Category:** Holdable
 **Stats:** +3 Attack when equipped
 **Type:** Permanent equipment
-**WORKING?:**
+**WORKING?:** YES.
 
 **How It Works:**
 1. Defined in `cards.ts:215-216`
