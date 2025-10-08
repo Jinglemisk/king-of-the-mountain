@@ -14,7 +14,7 @@ import type { EffectContext, EffectResult, Player } from '../../types';
  * @param context - Effect context with value indicating tiles to move back
  */
 export async function moveBack(context: EffectContext): Promise<EffectResult> {
-  const { gameState, playerId, value = 1, updateGameState, addLog, lobbyCode } = context;
+  const { gameState, playerId, value = 1, updateGameState, addLog, lobbyCode, resolveTile } = context;
   const player = gameState.players[playerId];
 
   if (!player) {
@@ -41,6 +41,22 @@ export async function moveBack(context: EffectContext): Promise<EffectResult> {
     true
   );
 
+  // Create updated game state with new position for tile resolution
+  const updatedGameState = {
+    ...gameState,
+    players: {
+      ...gameState.players,
+      [playerId]: {
+        ...player,
+        position: newPosition,
+        isInvisible: player.isInvisible ? false : player.isInvisible,
+      },
+    },
+  };
+
+  // Resolve the new tile's effects (treasure, enemy, luck)
+  await resolveTile(newPosition, updatedGameState);
+
   return {
     success: true,
     message: `Moved back ${value} tiles`,
@@ -54,7 +70,7 @@ export async function moveBack(context: EffectContext): Promise<EffectResult> {
  * @param context - Effect context with value indicating tiles to move forward
  */
 export async function moveForward(context: EffectContext): Promise<EffectResult> {
-  const { gameState, playerId, value = 2, updateGameState, addLog } = context;
+  const { gameState, playerId, value = 2, updateGameState, addLog, resolveTile } = context;
   const player = gameState.players[playerId];
 
   if (!player) {
@@ -80,6 +96,22 @@ export async function moveForward(context: EffectContext): Promise<EffectResult>
     playerId,
     true
   );
+
+  // Create updated game state with new position for tile resolution
+  const updatedGameState = {
+    ...gameState,
+    players: {
+      ...gameState.players,
+      [playerId]: {
+        ...player,
+        position: newPosition,
+        isInvisible: player.isInvisible ? false : player.isInvisible,
+      },
+    },
+  };
+
+  // Resolve the new tile's effects (treasure, enemy, luck)
+  await resolveTile(newPosition, updatedGameState);
 
   return {
     success: true,
@@ -390,7 +422,7 @@ export async function drawT1(context: EffectContext): Promise<EffectResult> {
  * @param context - Effect context with optional targetId
  */
 export async function swapPosition(context: EffectContext): Promise<EffectResult> {
-  const { gameState, playerId, targetId, addLog } = context;
+  const { gameState, playerId, targetId, addLog, resolveTile } = context;
   const player = gameState.players[playerId];
 
   if (!player) {
@@ -440,6 +472,25 @@ export async function swapPosition(context: EffectContext): Promise<EffectResult
     playerId,
     true
   );
+
+  // Create updated game state with swapped positions for tile resolution
+  const updatedGameState = {
+    ...gameState,
+    players: {
+      ...gameState.players,
+      [playerId]: {
+        ...player,
+        position: targetPos,
+      },
+      [targetPlayer.id]: {
+        ...targetPlayer,
+        position: playerPos,
+      },
+    },
+  };
+
+  // Resolve the tile effects for the player who drew the card
+  await resolveTile(targetPos, updatedGameState);
 
   return {
     success: true,
