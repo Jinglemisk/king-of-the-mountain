@@ -208,8 +208,19 @@ king-of-the-mountain/
 │   │           ├── InventoryGrid.tsx       # Inventory UI
 │   │           └── ActionButtons.tsx       # Turn actions UI
 │   │
+│   ├── services/              # Business logic layer ✨ NEW!
+│   │   ├── combat/            # Combat system (refactored)
+│   │   │   ├── combatEngine.ts      # Pure combat calculations
+│   │   │   ├── combatPersistence.ts # Firebase operations
+│   │   │   └── index.ts             # Public API
+│   │   ├── effectExecutor.ts  # Effect execution registry
+│   │   └── effects/           # Card & item effects
+│   │       ├── luckEffects.ts       # Luck card effects
+│   │       ├── consumableEffects.ts # Potion/consumable effects
+│   │       └── itemEffects.ts       # Unique item effects
+│   │
 │   ├── state/                 # State management
-│   │   └── gameSlice.ts       # Firebase update functions
+│   │   └── gameSlice.ts       # Firebase update functions (orchestration)
 │   │
 │   ├── types/                 # TypeScript definitions
 │   │   └── index.ts           # All game types & interfaces
@@ -217,6 +228,7 @@ king-of-the-mountain/
 │   ├── utils/                 # Shared utility functions ✨ NEW!
 │   │   ├── inventory.ts       # Inventory normalization
 │   │   ├── playerStats.ts     # Combat stat calculations
+│   │   ├── tempEffects.ts     # Temporary effect utilities
 │   │   └── shuffle.ts         # Deck shuffling
 │   │
 │   ├── App.tsx                # Main app router
@@ -246,15 +258,46 @@ king-of-the-mountain/
 4. **Inventory Check**: Drop items if inventory is full
 5. **End Turn**: Next player's turn begins
 
-### Combat System
+### Combat System ✅ (Fully Refactored)
 - Both sides roll **d6 for attack** and **d6 for defense**
-- Add bonuses from equipped items and player class
+- Add bonuses from equipped items, player class, and temporary effects
 - If `Attack > Defense`, 1 HP damage dealt
 - Continue until one side reaches 0 HP or retreats
-- **Retreat**: Move back 6 tiles, end combat immediately
+- **Retreat**: Move back 6 tiles, end combat immediately (PvE only)
+- **Special Mechanics**:
+  - ✅ Wardstone protection (prevents 1 HP loss, then consumed)
+  - ✅ Monk revival (one-time revival at 1 HP when reaching 0)
+  - ✅ Trap effect (skip first attack round when trapped on enemy tile)
+  - ✅ Multiple enemy targeting with UI selection
+  - ✅ PvP duels with looting interface
 
-**🚧 Trap Effect in Combat (Not Yet Implemented):**
-When a player triggers a Trap item and then enters combat on the same turn (e.g., landing on an Enemy tile with a trap), the trap should cause the player to skip their first round of combat attacks. The player can still roll for defense, but cannot attack for one combat round. This mechanic will be implemented when the combat system is completed.
+**Architecture**: The combat system has been refactored into a clean service layer architecture:
+```
+src/services/combat/
+├── combatEngine.ts        # Pure combat logic (no Firebase)
+│   ├── rollDice()                    # Dice rolling
+│   ├── calculatePlayerBonuses()      # Bonus aggregation
+│   ├── calculateCombatRoll()         # Combat roll generation
+│   ├── resolveCombatDamage()         # Damage calculation with special effects
+│   ├── executeCombatRound()          # Full round execution
+│   └── determineCombatOutcome()      # Win/loss determination
+│
+├── combatPersistence.ts   # Firebase operations only
+│   ├── getGameState()                # Read game state
+│   ├── updateCombatState()           # Update combat in Firebase
+│   ├── updatePlayerCombatStats()     # Update player stats
+│   ├── rollLootForEnemies()          # Draw loot cards
+│   └── advanceTurn()                 # Turn progression
+│
+└── index.ts               # Public API exports
+```
+
+**Benefits**:
+- ✅ **Separation of Concerns**: Game logic separated from database operations
+- ✅ **Unit Testable**: Pure functions can be tested without Firebase
+- ✅ **Maintainable**: Easy to modify combat formulas without touching persistence
+- ✅ **Reusable**: Combat engine can be used for AI, simulations, or testing
+- ✅ **Cleaner**: Reduced `gameSlice.ts` by ~171 lines of combat logic
 
 ### Inventory System
 - **Equipped Items** (contribute to stats):
@@ -713,6 +756,213 @@ While 18 of 24 card effects are fully functional, 6 effects require additional U
 1. **Quick Wins** (1-2 hours): Boogey-Bane, Lamp timing, Mystic Wave tie-breaks, Jinn Thief UI
 2. **Medium Complexity** (2-3 hours): Instinct activation, Smoke Bomb interrupt
 3. **Complex Features** (3-4 hours): Ambush system, Luck Charm real-time interrupts
+
+---
+
+## Combat System Architecture
+
+### Overview
+
+The Combat System has been refactored into a **clean service layer architecture** with strict separation of concerns. This architecture makes combat logic unit-testable, maintainable, and reusable.
+
+### Architecture Principles
+
+**Separation of Concerns**:
+- **Pure Game Logic** (`combatEngine.ts`) - No Firebase dependencies, fully unit-testable
+- **Database Operations** (`combatPersistence.ts`) - Only Firebase reads/writes, no game logic
+- **Orchestration** (`gameSlice.ts`) - Combines engine + persistence for game flow
+
+### File Structure
+
+```
+src/services/combat/
+├── combatEngine.ts           # Pure combat calculation logic (237 lines)
+├── combatPersistence.ts      # Firebase operations only (225 lines)
+└── index.ts                  # Public API exports
+```
+
+### Combat Engine (`combatEngine.ts`)
+
+**Purpose**: Pure functions for all combat calculations. Zero Firebase dependencies.
+
+**Key Functions**:
+
+1. **`rollDice(sides: number): number`**
+   - Rolls a dice with specified number of sides
+   - Returns: Random number from 1 to `sides`
+
+2. **`calculatePlayerBonuses(player: Player, isVsEnemy: boolean)`**
+   - Aggregates all combat bonuses from class, equipment, and temp effects
+   - Returns: `{ attackBonus: number, defenseBonus: number }`
+   - Uses: `getClassCombatBonuses()`, `getEquipmentBonuses()`, `getTempEffectCombatBonuses()`
+
+3. **`calculateCombatRoll(entity: Player | Enemy, isVsEnemy: boolean, skipAttack?: boolean): CombatRoll`**
+   - Generates combat roll for any entity (player or enemy)
+   - Handles trap effect (skipAttack = true → attack die = 0)
+   - Returns: Complete roll object with dice values and totals
+
+4. **`resolveCombatDamage(...): DamageResult`**
+   - Resolves damage for a single attacker-defender pair
+   - Handles special effects:
+     - Wardstone protection (prevents 1 HP loss, consumes effect)
+     - Monk revival (one-time revival at 1 HP)
+   - Returns: HP updates, damage dealt, special effect flags
+
+5. **`executeCombatRound(...): RoundResult`**
+   - Executes a full combat round with multiple defenders
+   - Rolls for attacker and all defenders
+   - Resolves damage sequentially for each defender
+   - Returns: Combat log entry, player updates, defender updates, messages
+
+6. **`determineCombatOutcome(attackerHp: number, defenders: Array): Outcome`**
+   - Checks if combat should end
+   - Returns: `{ isOver: boolean, attackerDefeated: boolean, defendersDefeated: boolean }`
+
+7. **`calculateEnemyLoot(enemyTier: 1 | 2 | 3): LootDrop | null`**
+   - Calculates loot drop probability by tier
+   - T1: 50% T1 treasure
+   - T2: 70% T2, 15% T1, 15% nothing
+   - T3: 80% T3, 20% T2
+
+**Example Usage**:
+```typescript
+import { executeCombatRound, determineCombatOutcome } from '../services/combat';
+
+// Execute a combat round
+const result = executeCombatRound(
+  attacker,        // Player object
+  defenders,       // Array of enemies or players
+  currentRound,    // 0-indexed round number
+  targetId         // Optional: specific target ID for multi-enemy
+);
+
+// Check result
+console.log(result.logEntry);              // Combat log entry
+console.log(result.attackerUpdates);       // HP, temp effects, flags
+console.log(result.defenderUpdates);       // Map of defender updates
+console.log(result.wardstoneMessages);     // Special effect messages
+
+// Check if combat is over
+const outcome = determineCombatOutcome(attacker.hp, defenders);
+if (outcome.isOver) {
+  // Handle victory/defeat
+}
+```
+
+### Combat Persistence (`combatPersistence.ts`)
+
+**Purpose**: All Firebase operations for combat. Zero game logic.
+
+**Key Functions**:
+
+1. **`getGameState(lobbyCode: string): Promise<GameState>`**
+   - Reads current game state from Firebase
+
+2. **`updateCombatState(lobbyCode: string, combat: CombatState | null)`**
+   - Updates combat state in Firebase
+
+3. **`appendCombatLog(lobbyCode: string, combat: CombatState, newLogEntry: CombatLogEntry)`**
+   - Appends new log entry to combat log
+
+4. **`updatePlayerCombatStats(lobbyCode: string, playerId: string, updates: Stats)`**
+   - Updates player HP, tempEffects, specialAbilityUsed flags
+
+5. **`batchUpdatePlayerStats(lobbyCode: string, playerUpdates: Map<string, Stats>)`**
+   - Batch updates multiple players in single Firebase write
+
+6. **`rollLootForEnemies(lobbyCode: string, enemies: Enemy[]): Promise<Item[]>`**
+   - Rolls loot for all defeated enemies
+   - Draws treasure cards from appropriate decks
+   - Returns: Array of dropped items
+
+7. **`advanceTurn(lobbyCode: string, currentTurnIndex: number, turnOrder: string[])`**
+   - Advances to next player's turn
+   - Used when current player is defeated
+
+### Orchestration (`gameSlice.ts`)
+
+**Purpose**: Combines combat engine and persistence for game flow.
+
+**Refactored Functions**:
+
+1. **`executeCombatRound(lobbyCode: string, targetId?: string): Promise<CombatLogEntry>`**
+   - **Before**: 218 lines of complex combat logic
+   - **After**: 88 lines of orchestration (-130 lines!)
+   - Flow:
+     1. Read game state from Firebase
+     2. Call `combatEngine.executeCombatRound()` for calculations
+     3. Update Firebase with results
+     4. Add log messages
+
+2. **`endCombat(lobbyCode: string, retreated: boolean): Promise<Item[]>`**
+   - **Before**: 145 lines of outcome handling
+   - **After**: 104 lines of orchestration (-41 lines!)
+   - Flow:
+     1. Check combat outcome
+     2. Handle PvE: Roll loot, move defeated player, advance turn
+     3. Handle PvP: Set unconscious state, advance turn
+     4. Return loot
+
+### Benefits of This Architecture
+
+✅ **Testability**
+- Pure functions in `combatEngine.ts` can be unit tested without Firebase
+- Easy to test edge cases (Wardstone, Monk revival, multi-enemy, etc.)
+- No mocking required for game logic tests
+
+✅ **Maintainability**
+- Combat formulas isolated from database operations
+- Easy to modify damage calculations, bonus calculations, or special effects
+- Clear separation makes debugging straightforward
+
+✅ **Reusability**
+- Combat engine can be used for:
+  - AI simulations
+  - Combat outcome predictions
+  - Testing tools
+  - Future features (tournament mode, practice mode, etc.)
+
+✅ **Cleaner Codebase**
+- Reduced `gameSlice.ts` by ~171 lines
+- Each file has single responsibility
+- TypeScript errors are easier to diagnose
+
+✅ **Performance**
+- Batch Firebase updates reduce network calls
+- Pure functions enable memoization if needed
+
+### Testing Strategy
+
+**Unit Tests** (Future):
+```typescript
+// combatEngine.test.ts
+describe('resolveCombatDamage', () => {
+  it('should apply Wardstone protection', () => {
+    const attacker = createTestPlayer({ tempEffects: [wardstoneEffect] });
+    const result = resolveCombatDamage(attacker, enemy, ...);
+    expect(result.attackerWardstoneUsed).toBe(true);
+    expect(result.attackerHpLost).toBe(0);
+  });
+});
+```
+
+**Integration Tests**:
+- Manual testing in game (see Implementation Status section)
+- Test PvE: single enemy, multiple enemies, retreat
+- Test PvP: duels, looting
+- Test special mechanics: Wardstone, Monk, traps
+
+### Migration Notes
+
+**Backward Compatibility**: ✅ Maintained
+- All existing imports continue to work
+- `useCombat.ts` hook unchanged
+- `CombatModal.tsx` UI unchanged
+- Old functions re-export from new services for compatibility:
+  - `rollDice()` → delegates to `combatEngine.rollDice()`
+  - `rollEnemyLoot()` → delegates to `combatPersistence.rollLootForEnemies()`
+
+**Breaking Changes**: None
 
 ---
 

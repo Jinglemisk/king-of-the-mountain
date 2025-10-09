@@ -6,7 +6,7 @@
  * number of turns or when specific conditions are met.
  */
 
-import type { Player, TempEffect, GameState } from '../types';
+import type { Player, TempEffect } from '../types';
 import { updateGameState } from '../state/gameSlice';
 
 /**

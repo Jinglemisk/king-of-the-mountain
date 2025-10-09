@@ -61,12 +61,12 @@ export function getTileDistribution(): Record<TileType, number> {
  */
 export const BOARD_PATTERN: TileType[] = [
   'start',      // 0  - Starting tile
-  'treasure1',  // 1  - Tier 1 treasure
-  'luck',       // 2  - Luck card
-  'treasure2',  // 3  - Tier 2 treasure
-  'luck',       // 4  - Luck card
-  'treasure1',  // 5  - Tier 1 treasure
-  'luck',       // 6  - Luck card
+  'enemy1',  // 1  - Tier 1 treasure
+  'enemy1',       // 2  - Luck card
+  'enemy1',  // 3  - Tier 2 treasure
+  'enemy1',       // 4  - Luck card
+  'enemy1',  // 5  - Tier 1 treasure
+  'enemy1',       // 6  - Luck card
   'treasure3',  // 7  - Tier 3 treasure
   'treasure2',  // 8  - Tier 2 treasure
   'luck',       // 9  - Luck card

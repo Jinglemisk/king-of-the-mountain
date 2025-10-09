@@ -12,16 +12,13 @@ import type {
   PlayerClass,
   Enemy,
   CombatState,
-  CombatRoll,
-  CombatResult,
   CombatLogEntry,
   Item,
 } from '../types';
 import { buildEnemyDeck, getEnemyComposition } from '../data/enemies';
 import { buildTreasureDeck, buildLuckDeck } from '../data/cards';
 import { generateBoardTiles } from '../data/BoardLayout';
-import { getEquipmentBonuses, getClassCombatBonuses } from '../utils/playerStats';
-import { getTempEffectCombatBonuses, removeTempEffect, hasWardstoneProtection } from '../utils/tempEffects';
+import { rollDice as rollDiceFromEngine } from '../services/combat/combatEngine';
 
 /**
  * Create a new game lobby with initial state
@@ -377,7 +374,8 @@ function createLogEntry(
  * @returns Random number from 1 to sides
  */
 export function rollDice(sides: number): number {
-  return Math.floor(Math.random() * sides) + 1;
+  // Re-export from combat engine for backward compatibility
+  return rollDiceFromEngine(sides);
 }
 
 /**
@@ -592,187 +590,53 @@ export async function executeCombatRound(
   const combat = gameState.combat;
   const attacker = gameState.players[combat.attackerId];
 
-  // Check if player is trapped and this is round 1
-  const skipPlayerAttack = attacker.skipNextTileEffect && combat.currentRound === 0;
+  // Use combat engine to calculate round results
+  const { executeCombatRound: calculateRound } = await import('../services/combat');
+  const roundResult = calculateRound(
+    attacker,
+    combat.defenders,
+    combat.currentRound,
+    targetId
+  );
 
-  // Determine if fighting enemies (all defenders are enemies if first defender is enemy)
-  const firstDefender = combat.defenders[0];
-  const isVsEnemy = 'attackBonus' in firstDefender && 'defenseBonus' in firstDefender;
-
-  // Get class, equipment, and temp effect bonuses for attacker
-  const classBonuses = getClassCombatBonuses(attacker, isVsEnemy);
-  const equipmentBonuses = getEquipmentBonuses(attacker, isVsEnemy);
-  const tempEffectBonuses = getTempEffectCombatBonuses(attacker);
-
-  // Roll for attacker
-  const attackerRoll: CombatRoll = {
-    entityId: attacker.id,
-    entityName: attacker.nickname,
-    attackDie: skipPlayerAttack ? 0 : rollDice(6),
-    defenseDie: rollDice(6),
-    attackBonus: classBonuses.attackBonus + equipmentBonuses.attackBonus + tempEffectBonuses.attackBonus,
-    defenseBonus: classBonuses.defenseBonus + equipmentBonuses.defenseBonus + tempEffectBonuses.defenseBonus,
-    totalAttack: 0,
-    totalDefense: 0,
-  };
-
-  attackerRoll.totalAttack = 1 + attackerRoll.attackDie + attackerRoll.attackBonus;
-  attackerRoll.totalDefense = 1 + attackerRoll.defenseDie + attackerRoll.defenseBonus;
-
-  // Roll for each defender
-  const defenderRolls: CombatRoll[] = [];
-  const results: CombatResult[] = [];
-
-  for (const defender of combat.defenders) {
-    const isPlayer = 'nickname' in defender;
-    const defenderName = isPlayer ? (defender as Player).nickname : (defender as Enemy).name;
-
-    // Get bonuses
-    let defAttackBonus = 0;
-    let defDefenseBonus = 0;
-
-    if (isPlayer) {
-      const defPlayer = defender as Player;
-      const defClassBonuses = getClassCombatBonuses(defPlayer, false); // PvP - fighting another player
-      const defEquipmentBonuses = getEquipmentBonuses(defPlayer, false); // PvP - creatures_only items don't work
-      const defTempEffectBonuses = getTempEffectCombatBonuses(defPlayer);
-      defAttackBonus = defClassBonuses.attackBonus + defEquipmentBonuses.attackBonus + defTempEffectBonuses.attackBonus;
-      defDefenseBonus = defClassBonuses.defenseBonus + defEquipmentBonuses.defenseBonus + defTempEffectBonuses.defenseBonus;
-    } else {
-      const enemy = defender as Enemy;
-      defAttackBonus = enemy.attackBonus;
-      defDefenseBonus = enemy.defenseBonus;
-    }
-
-    const defenderRoll: CombatRoll = {
-      entityId: defender.id,
-      entityName: defenderName,
-      attackDie: rollDice(6),
-      defenseDie: rollDice(6),
-      attackBonus: defAttackBonus,
-      defenseBonus: defDefenseBonus,
-      totalAttack: 1 + rollDice(6) + defAttackBonus,
-      totalDefense: 1 + rollDice(6) + defDefenseBonus,
-    };
-
-    defenderRolls.push(defenderRoll);
-
-    // Determine if attacker hits this defender (only if we're targeting it or there's only one)
-    let attackerHits = false;
-    if (combat.defenders.length === 1 || targetId === defender.id) {
-      attackerHits = !skipPlayerAttack && attackerRoll.totalAttack > defenderRoll.totalDefense;
-    }
-
-    // Determine if defender hits attacker
-    const defenderHits = defenderRoll.totalAttack > attackerRoll.totalDefense;
-
-    // Calculate damage
-    let defenderHpLost = attackerHits ? 1 : 0;
-    let attackerHpLost = defenderHits ? 1 : 0;
-
-    // Check Wardstone protection for attacker
-    if (attackerHpLost > 0 && hasWardstoneProtection(attacker)) {
-      attackerHpLost = 0; // Prevent HP loss
-      attacker.tempEffects = removeTempEffect(attacker, 'wardstone');
-      await addLog(lobbyCode, 'combat', `🛡️ ${attacker.nickname}'s Wardstone absorbed the damage!`, attacker.id, true);
-    }
-
-    // Check Wardstone protection for defender (if player)
-    const isDefenderPlayer = 'nickname' in defender;
-    if (isDefenderPlayer && defenderHpLost > 0 && hasWardstoneProtection(defender as Player)) {
-      defenderHpLost = 0; // Prevent HP loss
-      (defender as Player).tempEffects = removeTempEffect(defender as Player, 'wardstone');
-      await addLog(lobbyCode, 'combat', `🛡️ ${(defender as Player).nickname}'s Wardstone absorbed the damage!`, defender.id, true);
-    }
-
-    // Update HP
-    const newDefenderHp = Math.max(0, defender.hp - defenderHpLost);
-    const newAttackerHp = Math.max(0, attacker.hp - attackerHpLost);
-
-    // Check Monk revival for attacker
-    let monkRevived = false;
-    if (newAttackerHp === 0 && attacker.class === 'Monk' && !attacker.specialAbilityUsed) {
-      attacker.hp = 1;
-      attacker.specialAbilityUsed = true;
-      monkRevived = true;
-    } else {
-      attacker.hp = newAttackerHp;
-    }
-
-    // Check Monk revival for defender (if player)
-    if (isPlayer) {
-      const defPlayer = defender as Player;
-      if (newDefenderHp === 0 && defPlayer.class === 'Monk' && !defPlayer.specialAbilityUsed) {
-        defender.hp = 1;
-        (defender as Player).specialAbilityUsed = true;
-      } else {
-        defender.hp = newDefenderHp;
-      }
-    } else {
-      defender.hp = newDefenderHp;
-    }
-
-    // Create result for defender
-    results.push({
-      entityId: defender.id,
-      entityName: defenderName,
-      hpLost: defenderHpLost,
-      hpRemaining: defender.hp,
-      isDefeated: defender.hp === 0,
-    });
-
-    // Create result for attacker (only once)
-    if (defenderRolls.length === 1 || results.length === combat.defenders.length) {
-      results.push({
-        entityId: attacker.id,
-        entityName: attacker.nickname,
-        hpLost: attackerHpLost,
-        hpRemaining: attacker.hp,
-        isDefeated: attacker.hp === 0 && !monkRevived,
-      });
-    }
-  }
-
-  // Create combat log entry
-  const roundNumber = combat.currentRound + 1;
-  const logEntry: CombatLogEntry = {
-    round: roundNumber,
-    attackerRoll,
-    defenderRolls,
-    results,
-  };
-
-  // Update combat state
+  // Update combat state with new log entry
   const updatedCombat: CombatState = {
     ...combat,
-    currentRound: roundNumber,
-    combatLog: [...(combat.combatLog || []), logEntry],
-    defenders: combat.defenders, // Updated HP values are in the objects
+    currentRound: roundResult.logEntry.round,
+    combatLog: [...(combat.combatLog || []), roundResult.logEntry],
+    defenders: combat.defenders.map(d => {
+      const defUpdate = roundResult.defenderUpdates.get(d.id);
+      return defUpdate ? { ...d, hp: defUpdate.hp } : d;
+    }),
   };
 
-  // Update game state
+  // Build Firebase updates
   const updates: any = {
     combat: updatedCombat,
-    [`players/${attacker.id}/hp`]: attacker.hp,
+    [`players/${attacker.id}/hp`]: roundResult.attackerUpdates.hp,
   };
 
-  // Clear trap flag if this was round 1
-  if (combat.currentRound === 0 && attacker.skipNextTileEffect) {
-    updates[`players/${attacker.id}/skipNextTileEffect`] = false;
+  // Apply attacker updates
+  if (roundResult.attackerUpdates.specialAbilityUsed !== undefined) {
+    updates[`players/${attacker.id}/specialAbilityUsed`] = roundResult.attackerUpdates.specialAbilityUsed;
+  }
+  if (roundResult.attackerUpdates.tempEffects !== undefined) {
+    updates[`players/${attacker.id}/tempEffects`] = roundResult.attackerUpdates.tempEffects;
+  }
+  if (roundResult.attackerUpdates.skipNextTileEffect !== undefined) {
+    updates[`players/${attacker.id}/skipNextTileEffect`] = roundResult.attackerUpdates.skipNextTileEffect;
   }
 
-  // Update Monk ability usage
-  if (attacker.specialAbilityUsed) {
-    updates[`players/${attacker.id}/specialAbilityUsed`] = true;
-  }
-
-  // Update defender HP
-  for (const defender of combat.defenders) {
-    const isPlayer = 'nickname' in defender;
+  // Apply defender updates (for player defenders)
+  for (const [defenderId, defUpdate] of roundResult.defenderUpdates.entries()) {
+    const isPlayer = 'nickname' in combat.defenders.find(d => d.id === defenderId)!;
     if (isPlayer) {
-      updates[`players/${defender.id}/hp`] = defender.hp;
-      if ((defender as Player).specialAbilityUsed) {
-        updates[`players/${defender.id}/specialAbilityUsed`] = true;
+      updates[`players/${defenderId}/hp`] = defUpdate.hp;
+      if (defUpdate.specialAbilityUsed !== undefined) {
+        updates[`players/${defenderId}/specialAbilityUsed`] = defUpdate.specialAbilityUsed;
+      }
+      if (defUpdate.tempEffects !== undefined) {
+        updates[`players/${defenderId}/tempEffects`] = defUpdate.tempEffects;
       }
     }
   }
@@ -780,11 +644,17 @@ export async function executeCombatRound(
   await update(gameRef, updates);
 
   // Add log messages
-  if (skipPlayerAttack) {
+  if (attacker.skipNextTileEffect && combat.currentRound === 0) {
     await addLog(lobbyCode, 'combat', `⚠️ ${attacker.nickname} is trapped and cannot attack this round!`);
   }
 
-  for (const result of results) {
+  // Log Wardstone messages
+  for (const message of roundResult.wardstoneMessages) {
+    await addLog(lobbyCode, 'combat', message, attacker.id, true);
+  }
+
+  // Log damage
+  for (const result of roundResult.logEntry.results) {
     if (result.hpLost > 0) {
       await addLog(
         lobbyCode,
@@ -794,7 +664,7 @@ export async function executeCombatRound(
     }
   }
 
-  return logEntry;
+  return roundResult.logEntry;
 }
 
 /**
@@ -819,10 +689,6 @@ export async function endCombat(
   const attacker = gameState.players[combat.attackerId];
   const loot: Item[] = [];
 
-  // Determine combat outcome
-  const attackerDefeated = attacker.hp === 0;
-  const defendersDefeated = combat.defenders.every(d => d.hp === 0);
-
   // Handle retreat
   if (retreated) {
     const newPosition = Math.max(0, attacker.position - 6);
@@ -834,6 +700,10 @@ export async function endCombat(
     return [];
   }
 
+  // Determine combat outcome
+  const attackerDefeated = attacker.hp === 0;
+  const defendersDefeated = combat.defenders.every(d => d.hp === 0);
+
   // Check if fighting enemies
   const firstDefender = combat.defenders[0];
   const isVsEnemy = 'attackBonus' in firstDefender;
@@ -841,17 +711,15 @@ export async function endCombat(
   if (isVsEnemy) {
     // PvE combat
     if (attackerDefeated) {
-      // Player lost - move back 1 tile, become unconscious (keep HP at 0, set isAlive=false)
+      // Player lost - move back 1 tile, become unconscious
       const newPosition = Math.max(0, attacker.position - 1);
-
-      // Auto-advance turn so defeated player's turn ends
       const nextIndex = (gameState.currentTurnIndex + 1) % gameState.turnOrder.length;
       const nextPlayerId = gameState.turnOrder[nextIndex];
 
       await update(gameRef, {
         [`players/${attacker.id}/position`]: newPosition,
-        [`players/${attacker.id}/hp`]: 0, // Keep at 0 until they wake
-        [`players/${attacker.id}/isAlive`]: false, // Set unconscious state
+        [`players/${attacker.id}/hp`]: 0,
+        [`players/${attacker.id}/isAlive`]: false,
         [`players/${attacker.id}/actionTaken`]: 'sleep',
         currentTurnIndex: nextIndex,
         combat: null,
@@ -861,23 +729,16 @@ export async function endCombat(
 
       const nextPlayer = nextPlayerId ? gameState.players[nextPlayerId] : null;
       if (nextPlayer) {
-        await addLog(
-          lobbyCode,
-          'system',
-          `${attacker.nickname}'s turn ended. It's now ${nextPlayer.nickname}'s turn.`
-        );
+        await addLog(lobbyCode, 'system', `${attacker.nickname}'s turn ended. It's now ${nextPlayer.nickname}'s turn.`);
       }
     } else if (defendersDefeated) {
-      // Player won - roll for loot
-      for (const defender of combat.defenders) {
-        const enemy = defender as Enemy;
-        const droppedLoot = await rollEnemyLoot(lobbyCode, enemy.tier);
-        loot.push(...droppedLoot);
-      }
+      // Player won - roll for loot using combat persistence
+      const { rollLootForEnemies } = await import('../services/combat/combatPersistence');
+      const enemies = combat.defenders as Enemy[];
+      const droppedLoot = await rollLootForEnemies(lobbyCode, enemies);
+      loot.push(...droppedLoot);
 
-      await update(gameRef, {
-        combat: null,
-      });
+      await update(gameRef, { combat: null });
 
       await addLog(lobbyCode, 'combat', `🏆 ${attacker.nickname} defeated all enemies!`, attacker.id, true);
 
@@ -888,15 +749,13 @@ export async function endCombat(
   } else {
     // PvP combat
     if (attackerDefeated) {
-      // Attacker lost - stay on tile, become unconscious (keep HP at 0, set isAlive=false)
-
-      // Auto-advance turn so defeated player's turn ends
+      // Attacker lost - become unconscious
       const nextIndex = (gameState.currentTurnIndex + 1) % gameState.turnOrder.length;
       const nextPlayerId = gameState.turnOrder[nextIndex];
 
       await update(gameRef, {
-        [`players/${attacker.id}/hp`]: 0, // Keep at 0 until they wake
-        [`players/${attacker.id}/isAlive`]: false, // Set unconscious state
+        [`players/${attacker.id}/hp`]: 0,
+        [`players/${attacker.id}/isAlive`]: false,
         [`players/${attacker.id}/actionTaken`]: 'sleep',
         currentTurnIndex: nextIndex,
         combat: null,
@@ -906,16 +765,10 @@ export async function endCombat(
 
       const nextPlayer = nextPlayerId ? gameState.players[nextPlayerId] : null;
       if (nextPlayer) {
-        await addLog(
-          lobbyCode,
-          'system',
-          `${attacker.nickname}'s turn ended. It's now ${nextPlayer.nickname}'s turn.`
-        );
+        await addLog(lobbyCode, 'system', `${attacker.nickname}'s turn ended. It's now ${nextPlayer.nickname}'s turn.`);
       }
     } else if (defendersDefeated) {
-      // Attacker won PvP - set defenders as unconscious and end attacker's turn
-
-      // Auto-advance turn so attacker's turn ends after looting
+      // Attacker won PvP
       const nextIndex = (gameState.currentTurnIndex + 1) % gameState.turnOrder.length;
       const nextPlayerId = gameState.turnOrder[nextIndex];
 
@@ -926,7 +779,7 @@ export async function endCombat(
 
       // Set all defeated defenders as unconscious
       for (const defender of combat.defenders) {
-        if ('nickname' in defender) { // Is player
+        if ('nickname' in defender) {
           updates[`players/${defender.id}/hp`] = 0;
           updates[`players/${defender.id}/isAlive`] = false;
           updates[`players/${defender.id}/actionTaken`] = 'sleep';
@@ -938,11 +791,7 @@ export async function endCombat(
 
       const nextPlayer = nextPlayerId ? gameState.players[nextPlayerId] : null;
       if (nextPlayer) {
-        await addLog(
-          lobbyCode,
-          'system',
-          `${attacker.nickname}'s turn ended. It's now ${nextPlayer.nickname}'s turn.`
-        );
+        await addLog(lobbyCode, 'system', `${attacker.nickname}'s turn ended. It's now ${nextPlayer.nickname}'s turn.`);
       }
     }
   }
@@ -955,39 +804,13 @@ export async function endCombat(
  * @param lobbyCode - The lobby code
  * @param enemyTier - Tier of defeated enemy
  * @returns Array of dropped items
+ * @deprecated Use rollLootForEnemies from combat/combatPersistence instead
  */
 export async function rollEnemyLoot(
   lobbyCode: string,
   enemyTier: 1 | 2 | 3
 ): Promise<Item[]> {
-  const loot: Item[] = [];
-  const roll = Math.random();
-
-  if (enemyTier === 1) {
-    // T1: 50% chance for 1× T1 treasure
-    if (roll < 0.5) {
-      const items = await drawCards(lobbyCode, 'treasure', 1, 1);
-      loot.push(...items);
-    }
-  } else if (enemyTier === 2) {
-    // T2: 70% T2, 15% T1, 15% nothing
-    if (roll < 0.7) {
-      const items = await drawCards(lobbyCode, 'treasure', 2, 1);
-      loot.push(...items);
-    } else if (roll < 0.85) {
-      const items = await drawCards(lobbyCode, 'treasure', 1, 1);
-      loot.push(...items);
-    }
-  } else if (enemyTier === 3) {
-    // T3: 80% T3, 20% T2
-    if (roll < 0.8) {
-      const items = await drawCards(lobbyCode, 'treasure', 3, 1);
-      loot.push(...items);
-    } else {
-      const items = await drawCards(lobbyCode, 'treasure', 2, 1);
-      loot.push(...items);
-    }
-  }
-
-  return loot;
+  // Re-export for backward compatibility
+  const { rollLootForEnemies } = await import('../services/combat/combatPersistence');
+  return rollLootForEnemies(lobbyCode, [{ tier: enemyTier } as Enemy]);
 }
